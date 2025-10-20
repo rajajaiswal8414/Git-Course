@@ -1,1135 +1,483 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { Header } from '../../../shared/patient/header/header';
-import { Sidebar } from '../../../shared/sidebar/sidebar';
-import { DoctorResponseDTO } from '../../../models/doctor-interface';
-import { Patient } from '../../../models/patient-interface';
-import { AppointmentDTO } from '../../../models/appointment-interface';
-import { PatientService } from '../../../core/services/patient.service';
-import { AppointmentService } from '../../../core/services/patient-appointment.service';
+import { DoctorResponseDTO } from './doctor-interface';
 
-@Component({
-  selector: 'app-find-doctor',
-  standalone: true,
-  imports: [CommonModule, FormsModule, Sidebar, Header],
-  templateUrl: './find-doctor.html',
-  styleUrls: ['./find-doctor.css'],
-})
-export class FindDoctorComponent implements OnInit {
-  doctors: DoctorResponseDTO[] = [];
-  filteredDoctors: DoctorResponseDTO[] = [];
-  patient: Patient | null = null;
-  searchTerm: string = '';
-  searchType: 'name' | 'specialization' = 'name';
-  showBookingModal: boolean = false;
-  selectedDoctor: DoctorResponseDTO | null = null;
+export interface AppointmentDTO {
+  doctorId: number;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  reason?: string;
+}
 
-  appointmentData: AppointmentDTO = {
-    doctorId: 0,
-    appointmentDate: '',
-    startTime: '',
-    endTime: '',
-    reason: '',
-  };
+export interface AppointmentResponseDTO {
+  appointmentId: number;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  reason: string;
+  status: string;
+  patient: PatientResponseDTO;
+  doctor: DoctorResponseDTO;
+}
 
-  constructor(
-    private patientService: PatientService,
-    private appointmentService: AppointmentService,
-    private router: Router
-  ) {}
-
-  ngOnInit(): void {
-    this.loadPatientData();
-    this.loadAllDoctors();
-  }
-
-  loadPatientData(): void {
-    this.patientService.getPatient().subscribe({
-      next: (patient) => {
-        this.patient = patient;
-      },
-      error: (error) => {
-        console.error('Error loading patient data:', error);
-      },
-    });
-  }
-
-  loadAllDoctors(): void {
-    this.patientService.getAllDoctors().subscribe({
-      next: (doctors) => {
-        this.doctors = doctors;
-        this.filteredDoctors = doctors;
-      },
-      error: (error) => {
-        console.error('Error loading doctors:', error);
-      },
-    });
-  }
-
-  searchDoctors(): void {
-    if (!this.searchTerm.trim()) {
-      this.filteredDoctors = this.doctors;
-      return;
-    }
-
-    if (this.searchType === 'name') {
-      this.patientService.searchDoctorByName(this.searchTerm).subscribe({
-        next: (doctors) => {
-          this.filteredDoctors = doctors;
-        },
-        error: (error) => {
-          console.error('Error searching doctors by name:', error);
-        },
-      });
-    } else {
-      this.patientService.searchDoctorBySpecialization(this.searchTerm).subscribe({
-        next: (doctors) => {
-          this.filteredDoctors = doctors;
-        },
-        error: (error) => {
-          console.error('Error searching doctors by specialization:', error);
-        },
-      });
-    }
-  }
-
-  openBookingModal(doctor: DoctorResponseDTO): void {
-    this.selectedDoctor = doctor;
-    this.appointmentData.doctorId = doctor.doctorId;
-    this.showBookingModal = true;
-  }
-
-  closeBookingModal(): void {
-    this.showBookingModal = false;
-    this.selectedDoctor = null;
-    this.appointmentData = {
-      doctorId: 0,
-      appointmentDate: '',
-      startTime: '',
-      endTime: '',
-      reason: '',
-    };
-  }
-
-  bookAppointment(): void {
-    if (
-      this.appointmentData.doctorId &&
-      this.appointmentData.appointmentDate &&
-      this.appointmentData.startTime &&
-      this.appointmentData.endTime
-    ) {
-      this.appointmentService.bookAppointment(this.appointmentData).subscribe({
-        next: (appointment) => {
-          console.log('Appointment booked successfully:', appointment);
-          this.closeBookingModal();
-          this.router.navigate(['/patient/my-appointments']);
-        },
-        error: (error) => {
-          console.error('Error booking appointment:', error);
-        },
-      });
-    }
-  }
-
-  getDoctorInitials(doctorName: string): string {
-    return doctorName.split(' ').map(n => n[0]).join('').toUpperCase();
-  }
+export interface PatientResponseDTO {
+  patientId: number;
+  name: string;
+  email: string;
+  contactNumber: string;
+  address: string;
+  gender: string;
+  dateOfBirth: string;
+  bloodGroup: string;
 }
 
 
-<div class="flex min-h-screen">
-  <app-sidebar></app-sidebar>
 
-  <!-- Main Content -->
-  <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
-    <app-header [patient]="patient"></app-header>
 
-    <!-- Search Section -->
-    <div class="bg-white p-6 rounded-xl shadow mb-6">
-      <h2 class="text-2xl font-bold text-gray-800 mb-6">Find Doctors</h2>
 
-      <div class="flex gap-4 mb-6">
-        <div class="flex-1">
-          <input
-            type="text"
-            [(ngModel)]="searchTerm"
-            (input)="searchDoctors()"
-            placeholder="Search doctors..."
-            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <select
-          [(ngModel)]="searchType"
-          (change)="searchDoctors()"
-          class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+
+
+
+export interface MedicalRecordResponseDTO {
+  recordId: number;
+  patientId: number;
+  doctorId: number;
+  patientName: string;
+  doctorName: string;
+  reason: string;
+  diagnosis: string;
+  notes: string;
+  prescriptions: PrescriptionResponseDTO[];
+  createdAt: string;
+}
+
+export interface PrescriptionResponseDTO {
+  prescriptionId: number;
+  medicationName: string;
+  dosage: string;
+  instructions: string;
+  prescribedAt: string;
+}
+
+
+
+
+
+
+export interface DoctorResponseDTO {
+  doctorId: number;
+  doctorName: string;
+  specialization: string;
+  contactNumber: string;
+  email: string;
+  address: string;
+  licenseNumber: string;
+  yearsOfExperience: number;
+  consultationFee: number;
+}
+
+
+
+
+export interface NotificationResponseDTO {
+  id: number;
+  appointmentId: number;
+  recipientType: string;
+  recipientId: number;
+  title: string;
+  message: string;
+  createdAt: string;
+  read: boolean;
+}
+
+
+
+
+
+export interface Patient {
+  patientId: number;
+  name: string;
+  email: string;
+  contactNumber: string;
+  address: string;
+  gender: string;
+  dateOfBirth: string;
+  bloodGroup: string;
+}
+
+export interface PatientDTO {
+  name: string;
+  dateOfBirth: string;
+  gender: string;
+  contactNumber: string;
+  email: string;
+  address: string;
+  bloodGroup: string;
+}
+
+
+
+
+
+<div class="flex justify-between items-center mb-8 bg-white p-4 rounded-lg shadow">
+  <h1 class="text-2xl font-bold text-gray-800">Hello, {{ patient?.name || 'Patient' }}</h1>
+
+  <div class="flex items-center gap-4">
+    <!-- Notification -->
+    <div class="relative">
+      <button
+        (click)="toggleNotifications()"
+        class="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center text-xl hover:bg-gray-200 transition"
+      >
+        🔔 @if (notificationCount > 0) {
+        <span
+          class="absolute top-1 right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white"
+          >{{ notificationCount }}</span
         >
-          <option value="name">By Name</option>
-          <option value="specialization">By Specialization</option>
-        </select>
-      </div>
+        }
+      </button>
 
-      <!-- Doctors Grid -->
-      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        @for (doctor of filteredDoctors; track doctor.doctorId) {
+      <!-- Notification Dropdown -->
+      @if (showNotifications) {
+      <div
+        class="absolute right-0 mt-3 w-96 bg-white rounded-xl shadow-lg max-h-96 overflow-y-auto z-50"
+      >
+        <div class="flex justify-between items-center p-4 border-b">
+          <h3 class="font-semibold text-gray-800">Notifications</h3>
+          <button class="text-blue-600 text-sm font-medium">Mark all as read</button>
+        </div>
+        <div class="divide-y divide-gray-200">
+          <!-- Notification items will be dynamically loaded -->
+          <div class="p-4 bg-blue-50">
+            <h4 class="font-semibold text-gray-800">Appointment Confirmed</h4>
+            <p class="text-gray-600 text-sm">
+              Dr. John Smith confirmed your appointment for tomorrow at 10:00 AM
+            </p>
+            <span class="text-gray-400 text-xs">10 minutes ago</span>
+          </div>
+        </div>
+      </div>
+      }
+    </div>
+
+    <!-- Profile -->
+    <div class="relative">
+      <div
+        (click)="toggleProfile()"
+        class="flex items-center gap-3 bg-gray-100 p-2 rounded-lg cursor-pointer hover:bg-gray-200 transition"
+      >
         <div
-          class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition"
+          class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold flex items-center justify-center"
         >
-          <div class="flex items-center gap-4 mb-4">
-            <div
-              class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg"
-            >
-              {{ getDoctorInitials(doctor.doctorName) }}
-            </div>
-            <div>
-              <h3 class="font-semibold text-gray-800 text-lg">{{ doctor.doctorName }}</h3>
-              <p class="text-blue-600 font-medium">{{ doctor.specialization }}</p>
-            </div>
-          </div>
-
-          <div class="space-y-2 mb-4">
-            <div class="flex items-center gap-2 text-gray-600">
-              <span>📞</span>
-              <span>{{ doctor.contactNumber }}</span>
-            </div>
-            <div class="flex items-center gap-2 text-gray-600">
-              <span>✉️</span>
-              <span class="text-sm">{{ doctor.email }}</span>
-            </div>
-            <div class="flex items-center gap-2 text-gray-600">
-              <span>💰</span>
-              <span>${{ doctor.consultationFee }} consultation fee</span>
-            </div>
-            <div class="flex items-center gap-2 text-gray-600">
-              <span>⭐</span>
-              <span>{{ doctor.yearsOfExperience }} years experience</span>
-            </div>
-          </div>
-
-          <button
-            (click)="openBookingModal(doctor)"
-            class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-500 transition font-medium"
-          >
-            Book Appointment
-          </button>
+          {{ getInitials(patient?.name) }}
         </div>
-        } @if (filteredDoctors.length === 0) {
-        <div class="col-span-3 text-center py-12 text-gray-500">
-          No doctors found matching your search criteria.
+        <div class="text-left">
+          <div class="font-semibold text-gray-800 text-sm">{{ patient?.name || 'Patient' }}</div>
+          <div class="text-gray-500 text-xs">Patient ID: P{{ patient?.patientId }}</div>
         </div>
-        }
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- Booking Modal -->
-@if (showBookingModal && selectedDoctor) {
-<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-xl w-full max-w-md">
-    <div class="p-6 border-b border-gray-200">
-      <h3 class="text-xl font-semibold text-gray-800">Book Appointment</h3>
-      <p class="text-gray-600">with Dr. {{ selectedDoctor.doctorName }}</p>
-    </div>
-
-    <div class="p-6 space-y-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Appointment Date</label>
-        <input
-          type="date"
-          [(ngModel)]="appointmentData.appointmentDate"
-          class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <span class="text-gray-500 text-xs">▼</span>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-          <input
-            type="time"
-            [(ngModel)]="appointmentData.startTime"
-            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
-          <input
-            type="time"
-            [(ngModel)]="appointmentData.endTime"
-            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+      <!-- Profile Dropdown -->
+      @if (showProfile) {
+      <div class="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-lg z-50">
+        <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">👤 My Profile</a>
+        <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">⚙️ Settings</a>
+        <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">💳 Billing</a>
+        <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">❓ Help & Support</a>
+        <a href="#" class="flex items-center gap-2 p-3 text-red-600 hover:bg-gray-100">🚪 Logout</a>
       </div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Reason (Optional)</label>
-        <textarea
-          [(ngModel)]="appointmentData.reason"
-          rows="3"
-          class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Brief reason for the appointment..."
-        ></textarea>
-      </div>
-    </div>
-
-    <div class="p-6 border-t border-gray-200 flex gap-3">
-      <button
-        (click)="closeBookingModal()"
-        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
-      >
-        Cancel
-      </button>
-      <button
-        (click)="bookAppointment()"
-        class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-500 transition font-medium"
-      >
-        Book Appointment
-      </button>
-    </div>
-  </div>
-</div>
-}
-
-
-<div class="flex min-h-screen">
-  <app-sidebar></app-sidebar>
-
-  <!-- Main Content -->
-  <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
-    <app-header [patient]="patient"></app-header>
-
-    <div class="bg-white p-6 rounded-xl shadow">
-      <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
-        <h2 class="text-2xl font-bold text-gray-800">Medical Records</h2>
-        <div class="text-sm text-gray-500">{{ medicalRecords.length }} record(s) found</div>
-      </div>
-
-      <!-- Medical Records List -->
-      <div class="space-y-6">
-        @for (record of medicalRecords; track record.recordId) {
-        <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
-          <div class="flex justify-between items-start mb-4">
-            <div class="flex-1">
-              <div class="flex items-center gap-4 mb-3">
-                <div
-                  class="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold"
-                >
-                  🏥
-                </div>
-                <div>
-                  <h3 class="font-semibold text-gray-800 text-lg">
-                    Consultation with Dr. {{ record.doctorName }}
-                  </h3>
-                  <p class="text-gray-500 text-sm">
-                    {{ record.createdAt | date : 'fullDate' }}
-                  </p>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                @if (record.reason) {
-                <div>
-                  <h4 class="font-medium text-gray-700 mb-1">Reason for Visit</h4>
-                  <p class="text-gray-600">{{ record.reason }}</p>
-                </div>
-                } @if (record.diagnosis) {
-                <div>
-                  <h4 class="font-medium text-gray-700 mb-1">Diagnosis</h4>
-                  <p class="text-gray-600">{{ record.diagnosis }}</p>
-                </div>
-                }
-              </div>
-
-              @if (record.notes) {
-              <div class="mb-4">
-                <h4 class="font-medium text-gray-700 mb-1">Doctor's Notes</h4>
-                <p class="text-gray-600">{{ record.notes }}</p>
-              </div>
-              } @if (hasPrescriptions(record)) {
-              <div class="border-t border-gray-200 pt-4">
-                <h4 class="font-medium text-gray-700 mb-3">Prescriptions</h4>
-                <div class="space-y-2">
-                  @for (prescription of record.prescriptions; track prescription.prescriptionId) {
-                  <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
-                    <div>
-                      <p class="font-semibold text-gray-800">{{ prescription.medicationName }}</p>
-                      <p class="text-sm text-gray-600">
-                        {{ prescription.dosage }} • {{ prescription.instructions }}
-                      </p>
-                    </div>
-                    <span class="text-xs text-gray-500">
-                      {{ prescription.prescribedAt | date : 'shortDate' }}
-                    </span>
-                  </div>
-                  }
-                </div>
-              </div>
-              }
-            </div>
-          </div>
-
-          <div class="flex gap-2 pt-4 border-t border-gray-200">
-            <button
-              (click)="viewRecordDetails(record)"
-              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition text-sm"
-            >
-              View Details
-            </button>
-
-            @if (hasPrescriptions(record)) {
-            <button
-              (click)="downloadPrescription(record)"
-              class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition text-sm"
-            >
-              Download Prescription
-            </button>
-            }
-          </div>
-        </div>
-        } @if (medicalRecords.length === 0) {
-        <div class="text-center py-12 text-gray-500">
-          <div class="text-6xl mb-4">📋</div>
-          <h3 class="text-xl font-semibold mb-2">No medical records found</h3>
-          <p>Your medical records will appear here after your appointments.</p>
-        </div>
-        }
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- Medical Record Details Modal -->
-@if (showRecordModal && selectedRecord) {
-<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-    <div class="p-6 border-b border-gray-200">
-      <div class="flex justify-between items-center">
-        <h3 class="text-xl font-semibold text-gray-800">Medical Record Details</h3>
-        <button (click)="closeRecordModal()" class="text-gray-500 hover:text-gray-700 text-2xl">
-          ×
-        </button>
-      </div>
-      <p class="text-gray-600 mt-1">
-        Consultation with Dr. {{ selectedRecord.doctorName }} on
-        {{ selectedRecord.createdAt | date : 'fullDate' }}
-      </p>
-    </div>
-
-    <div class="p-6 space-y-6">
-      <!-- Basic Information -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h4 class="font-semibold text-gray-700 mb-2">Patient Information</h4>
-          <div class="space-y-1 text-sm">
-            <p><span class="font-medium">Name:</span> {{ selectedRecord.patientName }}</p>
-            <p><span class="font-medium">Doctor:</span> Dr. {{ selectedRecord.doctorName }}</p>
-            <p>
-              <span class="font-medium">Date:</span>
-              {{ selectedRecord.createdAt | date : 'fullDate' }}
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <h4 class="font-semibold text-gray-700 mb-2">Visit Information</h4>
-          <div class="space-y-1 text-sm">
-            @if (selectedRecord.reason) {
-            <p><span class="font-medium">Reason:</span> {{ selectedRecord.reason }}</p>
-            } @if (selectedRecord.diagnosis) {
-            <p><span class="font-medium">Diagnosis:</span> {{ selectedRecord.diagnosis }}</p>
-            }
-          </div>
-        </div>
-      </div>
-
-      <!-- Doctor's Notes -->
-      @if (selectedRecord.notes) {
-      <div>
-        <h4 class="font-semibold text-gray-700 mb-2">Doctor's Notes</h4>
-        <div class="bg-gray-50 p-4 rounded-lg">
-          <p class="text-gray-700">{{ selectedRecord.notes }}</p>
-        </div>
-      </div>
-      }
-
-      <!-- Prescriptions -->
-      @if (hasPrescriptions(selectedRecord)) {
-      <div>
-        <h4 class="font-semibold text-gray-700 mb-3">Prescriptions</h4>
-        <div class="space-y-3">
-          @for (prescription of selectedRecord.prescriptions; track prescription.prescriptionId) {
-          <div class="border border-gray-200 rounded-lg p-4">
-            <div class="flex justify-between items-start mb-2">
-              <h5 class="font-semibold text-lg text-gray-800">{{ prescription.medicationName }}</h5>
-              <span class="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                {{ prescription.prescribedAt | date : 'shortDate' }}
-              </span>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <span class="font-medium text-gray-700">Dosage:</span>
-                <span class="text-gray-600 ml-2">{{ prescription.dosage }}</span>
-              </div>
-              <div>
-                <span class="font-medium text-gray-700">Instructions:</span>
-                <span class="text-gray-600 ml-2">{{
-                  prescription.instructions || 'As directed'
-                }}</span>
-              </div>
-            </div>
-          </div>
-          }
-        </div>
-      </div>
-      }
-    </div>
-
-    <div class="p-6 border-t border-gray-200 flex gap-3">
-      <button
-        (click)="closeRecordModal()"
-        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
-      >
-        Close
-      </button>
-      @if (hasPrescriptions(selectedRecord)) {
-      <button
-        (click)="downloadPrescription(selectedRecord)"
-        class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-500 transition font-medium"
-      >
-        Download All Prescriptions
-      </button>
       }
     </div>
   </div>
 </div>
-}
 
 
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Sidebar } from '../../../shared/sidebar/sidebar';
-import { Header } from '../../../shared/patient/header/header';
-import { MedicalRecordResponseDTO } from '../../../models/medicalrecord-interface';
+
+
+import { Component, Input } from '@angular/core';
 import { Patient } from '../../../models/patient-interface';
-import { MedicalRecordService } from '../../../core/services/medical-record.service';
-import { PatientService } from '../../../core/services/patient.service';
 
 @Component({
-  selector: 'app-medical-records',
+  selector: 'app-header',
   standalone: true,
-  imports: [CommonModule, Sidebar, Header],
-  templateUrl: './medical-records.html',
-  styleUrls: ['./medical-records.css'],
+  imports: [],
+  templateUrl: './header.html',
 })
-export class MedicalRecords implements OnInit {
-  medicalRecords: MedicalRecordResponseDTO[] = [];
-  patient: Patient | null = null;
-  selectedRecord: MedicalRecordResponseDTO | null = null;
-  showRecordModal: boolean = false;
+export class Header {
+  @Input() patient: Patient | null = null;
+  @Input() notificationCount: number = 0;
 
-  constructor(
-    private medicalRecordService: MedicalRecordService,
-    private patientService: PatientService
-  ) {}
+  showNotifications = false;
+  showProfile = false;
 
-  ngOnInit(): void {
-    this.loadPatientData();
-    this.loadMedicalRecords();
+  toggleNotifications() {
+    this.showNotifications = !this.showNotifications;
+    this.showProfile = false;
   }
 
-  loadPatientData(): void {
-    this.patientService.getPatient().subscribe({
-      next: (patient) => {
-        this.patient = patient;
-      },
-      error: (error) => {
-        console.error('Error loading patient data:', error);
-      },
-    });
+  toggleProfile() {
+    this.showProfile = !this.showProfile;
+    this.showNotifications = false;
   }
-
-  loadMedicalRecords(): void {
-    this.medicalRecordService.getRecordsForPatient().subscribe({
-      next: (records) => {
-        this.medicalRecords = records;
-      },
-      error: (error) => {
-        console.error('Error loading medical records:', error);
-      },
-    });
-  }
-
-  viewRecordDetails(record: MedicalRecordResponseDTO): void {
-    this.selectedRecord = record;
-    this.showRecordModal = true;
-  }
-
-  closeRecordModal(): void {
-    this.showRecordModal = false;
-    this.selectedRecord = null;
-  }
-
-  downloadPrescription(record: MedicalRecordResponseDTO): void {
-    // Implement prescription download logic
-    console.log('Downloading prescription for record:', record.recordId);
-    // This would typically generate a PDF or download a file
-  }
-
-  hasPrescriptions(record: MedicalRecordResponseDTO): boolean {
-    return record.prescriptions && record.prescriptions.length > 0;
+  getInitials(name: string | undefined): string {
+    if (!name) return 'P';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase();
   }
 }
 
 
-<div class="flex min-h-screen">
-  <app-sidebar></app-sidebar>
 
-  <!-- Main Content -->
-  <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
-    <app-header [patient]="patient"></app-header>
 
-    <div class="bg-white p-6 rounded-xl shadow">
-      <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
-        <h2 class="text-2xl font-bold text-gray-800">My Appointments</h2>
-
-        <div class="flex items-center gap-4">
-          <select
-            [(ngModel)]="filterStatus"
-            (change)="onFilterChange()"
-            class="p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Appointments</option>
-            <option value="PENDING">Pending</option>
-            <option value="CONFIRMED">Confirmed</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="CANCELED">Canceled</option>
-            <option value="REJECTED">Rejected</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Appointments List -->
-      <div class="space-y-4">
-        @for (appointment of filteredAppointments; track appointment.appointmentId) {
-        <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
-          <div class="flex justify-between items-start mb-4">
-            <div class="flex-1">
-              <div class="flex items-center gap-4 mb-3">
-                <div
-                  class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold"
-                >
-                  {{ getDoctorInitials(appointment.doctor.doctorName) }}
-                </div>
-                <div>
-                  <h3 class="font-semibold text-gray-800 text-lg">
-                    Dr. {{ appointment.doctor.doctorName }}
-                  </h3>
-                  <p class="text-blue-600">{{ appointment.doctor.specialization }}</p>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                <div class="flex items-center gap-2">
-                  <span>📅</span>
-                  <span>{{ appointment.appointmentDate | date : 'fullDate' }}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span>🕐</span>
-                  <span>{{ appointment.startTime }} - {{ appointment.endTime }}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <span>💰</span>
-                  <span>${{ appointment.doctor.consultationFee }}</span>
-                </div>
-              </div>
-
-              @if (appointment.reason) {
-              <div class="mt-3">
-                <p class="text-sm text-gray-600">
-                  <span class="font-medium">Reason:</span> {{ appointment.reason }}
-                </p>
-              </div>
-              }
-            </div>
-
-            <div class="text-right">
-              <span
-                [class]="
-                  getStatusBadgeClass(appointment.status) +
-                  ' px-3 py-1 rounded-full text-sm font-semibold'
-                "
-              >
-                {{ appointment.status }}
-              </span>
-            </div>
-          </div>
-
-          <div class="flex gap-2 pt-4 border-t border-gray-200">
-            <button
-              class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition text-sm"
-            >
-              View Details
-            </button>
-
-            @if (canCancelAppointment(appointment.status)) {
-            <button
-              (click)="openCancelModal(appointment)"
-              class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition text-sm"
-            >
-              Cancel
-            </button>
-            } @if (appointment.status === 'PENDING') {
-            <button
-              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition text-sm"
-            >
-              Reschedule
-            </button>
-            }
-          </div>
-        </div>
-        } @if (filteredAppointments.length === 0) {
-        <div class="text-center py-12 text-gray-500">
-          <div class="text-6xl mb-4">📅</div>
-          <h3 class="text-xl font-semibold mb-2">No appointments found</h3>
-          <p>You don't have any appointments matching the current filter.</p>
-        </div>
-        }
-      </div>
-    </div>
-  </main>
-</div>
-
-<!-- Cancel Appointment Modal -->
-@if (showCancelModal && appointmentToCancel) {
-<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-xl w-full max-w-md">
-    <div class="p-6 border-b border-gray-200">
-      <h3 class="text-xl font-semibold text-gray-800">Cancel Appointment</h3>
-      <p class="text-gray-600 mt-1">Are you sure you want to cancel this appointment?</p>
-    </div>
-
-    <div class="p-6">
-      <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div class="flex items-center gap-3">
-          <div class="text-red-600 text-lg">⚠️</div>
-          <div>
-            <p class="font-semibold text-red-800">Cancellation Notice</p>
-            <p class="text-red-700 text-sm mt-1">
-              This action cannot be undone. The doctor will be notified of the cancellation.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="p-6 border-t border-gray-200 flex gap-3">
-      <button
-        (click)="closeCancelModal()"
-        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
-      >
-        Keep Appointment
-      </button>
-      <button
-        (click)="cancelAppointment()"
-        class="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-500 transition font-medium"
-      >
-        Cancel Appointment
-      </button>
-    </div>
+<aside class="w-64 bg-white shadow-md p-8">
+  <div class="mb-8 border-b border-gray-200 pb-4">
+    <div class="text-2xl font-bold text-blue-600 flex items-center gap-2">⚕ MediCare</div>
   </div>
-</div>
-}
+  <ul class="space-y-2">
+    <li>
+      <a
+        [routerLink]="['/patient/dashboard']"
+        routerLinkActive="border-l-4 border-blue-600 bg-blue-50"
+        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
+        >📊 Dashboard</a
+      >
+    </li>
+    <li>
+      <a
+        [routerLink]="['/patient/my-appointments']"
+        routerLinkActive="border-l-4 border-blue-600 bg-blue-50"
+        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
+        >📅 My Appointments</a
+      >
+    </li>
+    <li>
+      <a
+        [routerLink]="['/patient/find-doctors']"
+        routerLinkActive="border-l-4 border-blue-600 bg-blue-50"
+        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
+        >🔍 Find Doctors</a
+      >
+    </li>
+    <li>
+      <a
+        [routerLink]="['/patient/medical-records']"
+        routerLinkActive="border-l-4 border-blue-600 bg-blue-50"
+        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
+        >📋 Medical Records</a
+      >
+    </li>
+    <li>
+      <a
+        href="#"
+        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
+        >💊 Prescriptions</a
+      >
+    </li>
+    <li>
+      <a
+        href="#"
+        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
+        >🔔 Notifications</a
+      >
+    </li>
+    <li>
+      <a
+        href="#"
+        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
+        >⚙️ Settings</a
+      >
+    </li>
+    <li>
+      <button
+        (click)="logout()"
+        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition w-full text-left"
+      >
+        🚪 Logout
+      </button>
+    </li>
+  </ul>
+</aside>
 
 
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Sidebar } from '../../../shared/sidebar/sidebar';
-import { Header } from '../../../shared/patient/header/header';
-import { AppointmentResponseDTO } from '../../../models/appointment-interface';
-import { Patient } from '../../../models/patient-interface';
-import { AppointmentService } from '../../../core/services/patient-appointment.service';
-import { PatientService } from '../../../core/services/patient.service';
+
+
+import { Component, inject, OnInit } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { PatientAuthService } from '../../core/services/patient-auth.service';
 
 @Component({
-  selector: 'app-my-appointments',
+  selector: 'app-sidebar',
   standalone: true,
-  imports: [CommonModule, FormsModule, Sidebar, Header],
-  templateUrl: './my-appointments.html',
-  styleUrls: ['./my-appointments.css'],
+  imports: [RouterLink, RouterLinkActive],
+  templateUrl: './sidebar.html',
 })
-export class MyAppointments implements OnInit {
-  appointments: AppointmentResponseDTO[] = [];
-  filteredAppointments: AppointmentResponseDTO[] = [];
-  patient: Patient | null = null;
-  filterStatus: string = 'all';
-  showCancelModal: boolean = false;
-  appointmentToCancel: AppointmentResponseDTO | null = null;
-
-  constructor(
-    private appointmentService: AppointmentService,
-    private patientService: PatientService
-  ) {}
-
-  ngOnInit(): void {
-    this.loadPatientData();
-    this.loadAppointments();
-  }
-
-  loadPatientData(): void {
-    this.patientService.getPatient().subscribe({
-      next: (patient) => {
-        this.patient = patient;
-      },
-      error: (error) => {
-        console.error('Error loading patient data:', error);
-      },
-    });
-  }
-
-  loadAppointments(): void {
-    this.appointmentService.getAppointmentsForPatient().subscribe({
-      next: (appointments) => {
-        this.appointments = appointments;
-        this.filterAppointments();
-      },
-      error: (error) => {
-        console.error('Error loading appointments:', error);
-      },
-    });
-  }
-
-  filterAppointments(): void {
-    if (this.filterStatus === 'all') {
-      this.filteredAppointments = this.appointments;
-    } else {
-      this.filteredAppointments = this.appointments.filter(
-        (apt) => apt.status === this.filterStatus
-      );
-    }
-  }
-
-  onFilterChange(): void {
-    this.filterAppointments();
-  }
-
-  openCancelModal(appointment: AppointmentResponseDTO): void {
-    this.appointmentToCancel = appointment;
-    this.showCancelModal = true;
-  }
-
-  closeCancelModal(): void {
-    this.showCancelModal = false;
-    this.appointmentToCancel = null;
-  }
-
-  cancelAppointment(): void {
-    if (this.appointmentToCancel) {
-      this.appointmentService.cancelAppointment(this.appointmentToCancel.appointmentId).subscribe({
-        next: () => {
-          this.loadAppointments();
-          this.closeCancelModal();
-        },
-        error: (error) => {
-          console.error('Error canceling appointment:', error);
-        },
-      });
-    }
-  }
-
-  getStatusBadgeClass(status: string): string {
-    switch (status) {
-      case 'CONFIRMED':
-        return 'bg-green-100 text-green-800';
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'CANCELED':
-        return 'bg-red-100 text-red-800';
-      case 'COMPLETED':
-        return 'bg-blue-100 text-blue-800';
-      case 'REJECTED':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  }
-
-  canCancelAppointment(status: string): boolean {
-    return status === 'PENDING' || status === 'CONFIRMED';
-  }
-
-  getDoctorInitials(doctorName: string): string {
-    return doctorName.split(' ').map(n => n[0]).join('').toUpperCase();
-  }
+export class Sidebar {
+  private patientAuthService = inject(PatientAuthService);
+  private router = inject(Router);
 }
 
 
 
-<div class="flex min-h-screen">
-  <app-sidebar></app-sidebar>
-
-  <!-- Main Content -->
-  <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
-    <app-header [patient]="patient" [notificationCount]="stats.notifications"></app-header>
-
-    <!-- Stats Cards -->
-    <div class="grid gap-6 mb-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-      <div
-        class="bg-white p-6 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition"
-      >
-        <div>
-          <h3 class="text-sm text-gray-500 font-medium mb-1">Upcoming Appointments</h3>
-          <p class="text-2xl font-bold text-gray-800">{{ stats.upcomingAppointments }}</p>
-        </div>
-        <div class="text-3xl">📅</div>
-      </div>
-      <div
-        class="bg-white p-6 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition"
-      >
-        <div>
-          <h3 class="text-sm text-gray-500 font-medium mb-1">Active Prescriptions</h3>
-          <p class="text-2xl font-bold text-gray-800">{{ stats.activePrescriptions }}</p>
-        </div>
-        <div class="text-3xl">💊</div>
-      </div>
-      <div
-        class="bg-white p-6 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition"
-      >
-        <div>
-          <h3 class="text-sm text-gray-500 font-medium mb-1">Medical Records</h3>
-          <p class="text-2xl font-bold text-gray-800">{{ stats.medicalRecords }}</p>
-        </div>
-        <div class="text-3xl">📋</div>
-      </div>
-      <div
-        class="bg-white p-6 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition"
-      >
-        <div>
-          <h3 class="text-sm text-gray-500 font-medium mb-1">Notifications</h3>
-          <p class="text-2xl font-bold text-gray-800">{{ stats.notifications }}</p>
-        </div>
-        <div class="text-3xl">🔔</div>
-      </div>
-    </div>
-
-    <!-- Upcoming Appointments -->
-    <div class="bg-white p-6 rounded-xl shadow mb-6">
-      <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-2">
-        <h2 class="text-lg font-semibold text-gray-800">Upcoming Appointments</h2>
-        <button
-          (click)="navigateToFindDoctors()"
-          class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition"
-        >
-          Book New
-        </button>
-      </div>
-
-      @for (appointment of upcomingAppointments; track appointment.appointmentId) {
-      <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded mb-4">
-        <div class="flex justify-between items-start mb-2">
-          <div>
-            <div class="font-semibold text-gray-800 text-lg">
-              Dr. {{ appointment.doctor.doctorName }} - {{ appointment.doctor.specialization }}
-            </div>
-            <div class="text-gray-500 text-sm mt-1">
-              🕐 {{ appointment.appointmentDate | date : 'mediumDate' }},
-              {{ appointment.startTime }}
-            </div>
-          </div>
-          <span
-            [class]="
-              getStatusBadgeClass(appointment.status) +
-              ' px-3 py-1 rounded-full text-sm font-semibold'
-            "
-          >
-            {{ appointment.status }}
-          </span>
-        </div>
-        <div class="flex gap-2 mt-4">
-          <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">
-            View Details
-          </button>
-          @if (appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') {
-          <button class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition">
-            Cancel
-          </button>
-          }
-        </div>
-      </div>
-      } @if (upcomingAppointments.length === 0) {
-      <div class="text-center py-8 text-gray-500">No upcoming appointments</div>
-      }
-    </div>
-
-    <!-- Recent Prescriptions -->
-    <div class="bg-white p-6 rounded-xl shadow">
-      <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-2">
-        <h2 class="text-lg font-semibold text-gray-800">Recent Prescriptions</h2>
-        <a href="#" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition"
-          >View All</a
-        >
-      </div>
-
-      @if (medicalRecords.length > 0) {
-      <table class="w-full border-collapse">
-        <thead class="bg-gray-100">
-          <tr>
-            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Medicine</th>
-            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Prescribed By</th>
-            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Date</th>
-            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Status</th>
-            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (record of medicalRecords.slice(0, 2); track record.recordId) { @for (prescription of
-          record.prescriptions; track prescription.prescriptionId) {
-          <tr class="hover:bg-gray-100">
-            <td class="p-4 font-semibold">{{ prescription.medicationName }}</td>
-            <td class="p-4">Dr. {{ record.doctorName }}</td>
-            <td class="p-4">{{ prescription.prescribedAt | date : 'mediumDate' }}</td>
-            <td class="p-4">
-              <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold"
-                >Active</span
-              >
-            </td>
-            <td class="p-4">
-              <button
-                class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition"
-              >
-                Download
-              </button>
-            </td>
-          </tr>
-          } }
-        </tbody>
-      </table>
-      } @else {
-      <div class="text-center py-8 text-gray-500">No prescriptions available</div>
-      }
-    </div>
-  </main>
-</div>
 
 
-import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
-import { CommonModule } from '@angular/common';
-import { AppointmentResponseDTO } from '../../../models/appointment-interface';
-import { Patient } from '../../../models/patient-interface';
-import { Header } from '../../../shared/patient/header/header';
-import { MedicalRecordResponseDTO } from '../../../models/medicalrecord-interface';
-import { NotificationResponseDTO } from '../../../models/notification-interface';
-import { PatientService } from '../../../core/services/patient.service';
-import { AppointmentService } from '../../../core/services/patient-appointment.service';
-import { MedicalRecordService } from '../../../core/services/medical-record.service';
-import { NotificationService } from '../../../core/services/notification.service';
-import { Sidebar } from '../../../shared/sidebar/sidebar';
+import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth-guard';
 
-@Component({
-  selector: 'app-patient-dashboard',
-  standalone: true,
-  imports: [CommonModule, Sidebar, Header],
-  templateUrl: './patient-dashboard.html',
-  styleUrls: ['./patient-dashboard.css'],
-})
-export class PatientDashboard implements OnInit {
-  patient: Patient | null = null;
-  upcomingAppointments: AppointmentResponseDTO[] = [];
-  medicalRecords: MedicalRecordResponseDTO[] = [];
-  notifications: NotificationResponseDTO[] = [];
-  stats = {
-    upcomingAppointments: 0,
-    activePrescriptions: 0,
-    medicalRecords: 0,
-    notifications: 0,
-  };
+// --- Import all components and layouts used in the routes ---
+import { PublicLayout } from './layouts/public-layout/public-layout';
+import { DashboardLayout } from './layouts/dashboard-layout/dashboard-layout';
+import { AuthLayout } from './layouts/auth-layout/auth-layout';
 
-  constructor(
-    private patientService: PatientService,
-    private appointmentService: AppointmentService,
-    private medicalRecordService: MedicalRecordService,
-    private notificationService: NotificationService,
-    private router: Router
-  ) {}
-
-  ngOnInit(): void {
-    this.loadPatientData();
-    this.loadAppointments();
-    this.loadMedicalRecords();
-    this.loadNotifications();
-  }
-
-  loadPatientData(): void {
-    this.patientService.getPatient().subscribe({
-      next: (patient) => {
-        this.patient = patient;
+export const routes: Routes = [
+  // 1. Public routes (Landing Page)
+  {
+    path: '',
+    component: PublicLayout,
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/landing/landing').then((m) => m.Landing),
+        title: 'MediCare - Home',
       },
-      error: (error) => {
-        console.error('Error loading patient data:', error);
-      },
-    });
-  }
+      // You can add other public pages here (e.g., /about, /contact)
+    ],
+  },
 
-  loadAppointments(): void {
-    this.appointmentService.getAppointmentsForPatient().subscribe({
-      next: (appointments) => {
-        this.upcomingAppointments = appointments
-          .filter((apt) => apt.status === 'PENDING' || apt.status === 'CONFIRMED')
-          .slice(0, 3);
-        this.stats.upcomingAppointments = this.upcomingAppointments.length;
+  // 2. Authentication routes (Login, Register)
+  {
+    path: 'auth',
+    component: AuthLayout,
+    children: [
+      {
+        path: 'login',
+        loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
+        title: 'Login',
       },
-      error: (error) => {
-        console.error('Error loading appointments:', error);
+      {
+        path: 'register',
+        loadComponent: () =>
+          import('./features/auth/register/patient-register/patient-register').then(
+            (m) => m.PatientRegister
+          ),
+        title: 'Patient Registration',
       },
-    });
-  }
+    ],
+  },
 
-  loadMedicalRecords(): void {
-    this.medicalRecordService.getRecordsForPatient().subscribe({
-      next: (records) => {
-        this.medicalRecords = records;
-        this.stats.medicalRecords = records.length;
-        this.stats.activePrescriptions = records.reduce(
-          (count, record) => count + (record.prescriptions ? record.prescriptions.length : 0),
-          0
-        );
+  // 3. Patient Dashboard (Protected)
+  {
+    path: 'patient',
+    component: DashboardLayout,
+    canActivate: [authGuard],
+    data: { role: 'PATIENT' }, // Used in your AuthGuard for role checking
+    children: [
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/patient/patient-dashboard/patient-dashboard').then(
+            (m) => m.PatientDashboard
+          ),
+        title: 'Patient Dashboard',
       },
-      error: (error) => {
-        console.error('Error loading medical records:', error);
+      {
+        path: 'my-appointments',
+        loadComponent: () =>
+          import('./features/patient/my-appointments/my-appointments').then(
+            (m) => m.MyAppointments
+          ),
+        title: 'My Appointments',
       },
-    });
-  }
-
-  loadNotifications(): void {
-    this.notificationService.getPatientNotifications().subscribe({
-      next: (notifications) => {
-        this.notifications = notifications;
-        this.stats.notifications = notifications.length;
+      {
+        path: 'find-doctors',
+        loadComponent: () =>
+          import('./features/patient/find-doctor/find-doctor').then((m) => m.FindDoctorComponent),
+        title: 'Find Doctors',
       },
-      error: (error) => {
-        console.error('Error loading notifications:', error);
+      {
+        path: 'medical-records',
+        loadComponent: () =>
+          import('./features/patient/medical-records/medical-records').then(
+            (m) => m.MedicalRecords
+          ),
+        title: 'Medical Records',
       },
-    });
-  }
+      // Add other patient sub-routes here
+    ],
+  },
 
-  navigateToFindDoctors(): void {
-    this.router.navigate(['/patient/find-doctors']);
-  }
+  // 4. Doctor Dashboard (Protected)
+  {
+    path: 'doctor',
+    component: DashboardLayout,
+    canActivate: [authGuard],
+    data: { role: 'DOCTOR' },
+    children: [
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/doctor/doctor-dashboard/doctor-dashboard').then(
+            (m) => m.DoctorDashboard
+          ),
+        title: 'Doctor Dashboard',
+      },
+      {
+        path: 'appointments',
+        loadComponent: () =>
+          import('./features/doctor/doctor-appointments/doctor-appointments').then(
+            (m) => m.DoctorAppointments
+          ),
+        title: 'Appointments',
+      },
+      {
+        path: 'patients',
+        loadComponent: () =>
+          import('./features/doctor/patient-management/patient-management').then(
+            (m) => m.PatientManagement
+          ),
+        title: 'Patient Management',
+      },
+      {
+        path: 'availability',
+        loadComponent: () =>
+          import('./features/doctor/doctor-availability/doctor-availability').then(
+            (m) => m.DoctorAvailability
+          ),
+        title: 'Doctor Availability',
+      },
+    ],
+  },
 
-  getStatusBadgeClass(status: string): string {
-    switch (status) {
-      case 'CONFIRMED':
-        return 'bg-green-100 text-green-800';
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'REJECTED':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  }
-}
+  // 5. Admin Dashboard (Protected)
+  {
+    path: 'admin',
+    component: DashboardLayout,
+    canActivate: [authGuard],
+    data: { role: 'ADMIN' },
+    children: [
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/admin/admin-dashboard/admin-dashboard').then((m) => m.AdminDashboard),
+        title: 'Admin Dashboard',
+      },
+    ],
+  },
 
+  // 6. Generic Dashboard Redirect
+  {
+    path: 'dashboard',
+    canActivate: [authGuard],
+    children: [], // This route is handled by the AuthGuard to redirect users based on their role (PATIENT, DOCTOR, ADMIN)
+  },
+
+  // 7. Wildcard route (404/Redirect)
+  {
+    path: '**',
+    redirectTo: '', // Redirects unknown paths back to the home/landing page
+    pathMatch: 'full',
+  },
+];
 
