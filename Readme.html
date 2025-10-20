@@ -1,157 +1,50 @@
-import { Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth-guard';
+// jwt.interceptor.ts - FIXED VERSION
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { PatientAuthService } from '../services/patient-auth.service';
+import { DoctorAuthService } from '../services/doctor-auth.service';
+import { AdminAuthService } from '../services/admin-auth.service';
+import { JwtService } from '../services/jwt.service';
 
-// --- Import all components and layouts used in the routes ---
-import { PublicLayout } from './layouts/public-layout/public-layout';
-import { DashboardLayout } from './layouts/dashboard-layout/dashboard-layout';
-import { AuthLayout } from './layouts/auth-layout/auth-layout';
+export const jwtInterceptor: HttpInterceptorFn = (req, next) => {
+  // Check all auth services for tokens
+  const patientAuth = inject(PatientAuthService);
+  const doctorAuth = inject(DoctorAuthService);
+  const adminAuth = inject(AdminAuthService);
+  const jwtService = inject(JwtService);
 
-export const routes: Routes = [
-  // 1. Public routes (Landing Page)
-  {
-    path: '',
-    component: PublicLayout,
-    children: [
-      {
-        path: '',
-        loadComponent: () => import('./features/landing/landing').then((m) => m.Landing),
-        title: 'MediCare - Home',
-      },
-      // You can add other public pages here (e.g., /about, /contact)
-    ],
-  },
+  let token: string | null = null;
+  let authService: any = null;
 
-  // 2. Authentication routes (Login, Register)
-  {
-    path: 'auth',
-    component: AuthLayout,
-    children: [
-      {
-        path: 'login',
-        loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
-        title: 'Login',
-      },
-      {
-        path: 'register',
-        loadComponent: () =>
-          import('./features/auth/register/patient-register/patient-register').then(
-            (m) => m.PatientRegister
-          ),
-        title: 'Patient Registration',
-      },
-    ],
-  },
+  // Check in order of specificity
+  if (adminAuth.getToken()) {
+    token = adminAuth.getToken();
+    authService = adminAuth;
+    console.log('🔐 Using Admin token for request');
+  } else if (doctorAuth.getToken()) {
+    token = doctorAuth.getToken();
+    authService = doctorAuth;
+    console.log('🔐 Using Doctor token for request');
+  } else if (patientAuth.getToken()) {
+    token = patientAuth.getToken();
+    authService = patientAuth;
+    console.log('🔐 Using Patient token for request');
+  }
 
-  // 3. Patient Dashboard (Protected)
-  {
-    path: 'patient',
-    component: DashboardLayout,
-    canActivate: [authGuard],
-    data: { role: 'PATIENT' }, // Used in your AuthGuard for role checking
-    children: [
-      {
-        path: 'dashboard',
-        loadComponent: () =>
-          import('./features/patient/patient-dashboard/patient-dashboard').then(
-            (m) => m.PatientDashboard
-          ),
-        title: 'Patient Dashboard',
-      },
-      {
-        path: 'my-appointments',
-        loadComponent: () =>
-          import('./features/patient/my-appointments/my-appointments').then(
-            (m) => m.MyAppointments
-          ),
-        title: 'My Appointments',
-      },
-      {
-        path: 'find-doctors',
-        loadComponent: () =>
-          import('./features/patient/find-doctor/find-doctor').then((m) => m.FindDoctorComponent),
-        title: 'Find Doctors',
-      },
-      {
-        path: 'medical-records',
-        loadComponent: () =>
-          import('./features/patient/medical-records/medical-records').then(
-            (m) => m.MedicalRecords
-          ),
-        title: 'Medical Records',
-      },
-      // Add other patient sub-routes here
-    ],
-  },
+  // Check if token is expired before using it
+  if (token && jwtService.isTokenExpired(token)) {
+    console.log('🔒 Token expired, clearing session');
+    authService?.logout();
+    return next(req); // Continue without token
+  }
 
-  // 4. Doctor Dashboard (Protected)
-  {
-    path: 'doctor',
-    component: DashboardLayout,
-    canActivate: [authGuard],
-    data: { role: 'DOCTOR' },
-    children: [
-      {
-        path: 'dashboard',
-        loadComponent: () =>
-          import('./features/doctor/doctor-dashboard/doctor-dashboard').then(
-            (m) => m.DoctorDashboard
-          ),
-        title: 'Doctor Dashboard',
+  if (token) {
+    req = req.clone({
+      setHeaders: {
+        Authorization: `Bearer ${token}`,
       },
-      {
-        path: 'appointments',
-        loadComponent: () =>
-          import('./features/doctor/doctor-appointments/doctor-appointments').then(
-            (m) => m.DoctorAppointments
-          ),
-        title: 'Appointments',
-      },
-      {
-        path: 'patients',
-        loadComponent: () =>
-          import('./features/doctor/patient-management/patient-management').then(
-            (m) => m.PatientManagement
-          ),
-        title: 'Patient Management',
-      },
-      {
-        path: 'availability',
-        loadComponent: () =>
-          import('./features/doctor/doctor-availability/doctor-availability').then(
-            (m) => m.DoctorAvailability
-          ),
-        title: 'Doctor Availability',
-      },
-    ],
-  },
+    });
+  }
 
-  // 5. Admin Dashboard (Protected)
-  {
-    path: 'admin',
-    component: DashboardLayout,
-    canActivate: [authGuard],
-    data: { role: 'ADMIN' },
-    children: [
-      {
-        path: 'dashboard',
-        loadComponent: () =>
-          import('./features/admin/admin-dashboard/admin-dashboard').then((m) => m.AdminDashboard),
-        title: 'Admin Dashboard',
-      },
-    ],
-  },
-
-  // 6. Generic Dashboard Redirect
-  {
-    path: 'dashboard',
-    canActivate: [authGuard],
-    children: [], // This route is handled by the AuthGuard to redirect users based on their role (PATIENT, DOCTOR, ADMIN)
-  },
-
-  // 7. Wildcard route (404/Redirect)
-  {
-    path: '**',
-    redirectTo: '', // Redirects unknown paths back to the home/landing page
-    pathMatch: 'full',
-  },
-];
+  return next(req);
+};
