@@ -1,134 +1,157 @@
-import { Component, OnInit } from '@angular/core';
-import { HttpClientModule } from '@angular/common/http';
-import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { AppointmentResponseDTO } from '../../../models/appointment-interface';
-import { AppointmentService } from '../../../core/services/patient-appointment.service';
+import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth-guard';
 
-@Component({
-  selector: 'app-doctor-appointments',
-  templateUrl: './doctor-appointments.html',
-  imports: [FormsModule, CommonModule, HttpClientModule, RouterLink],
-})
-export class DoctorAppointments implements OnInit {
-  appointments: AppointmentResponseDTO[] = [];
-  filteredAppointments: AppointmentResponseDTO[] = [];
-  currentAppointmentId: number | null = null;
+// --- Import all components and layouts used in the routes ---
+import { PublicLayout } from './layouts/public-layout/public-layout';
+import { DashboardLayout } from './layouts/dashboard-layout/dashboard-layout';
+import { AuthLayout } from './layouts/auth-layout/auth-layout';
 
-  // Filters
-  searchTerm = '';
-  dateFilter = 'all';
-  statusFilter = 'all';
-
-  // Stats
-  todayCount = 0;
-  pendingCount = 0;
-  confirmedCount = 0;
-  completedCount = 0;
-
-  constructor(private appointmentService: AppointmentService) {}
-
-  ngOnInit(): void {
-    this.loadAppointments();
-  }
-
-  loadAppointments(): void {
-    this.appointmentService.getAppointmentsForDoctor().subscribe({
-      next: (appointments) => {
-        this.appointments = appointments || [];
-        this.filteredAppointments = [...this.appointments];
-        this.updateStats();
+export const routes: Routes = [
+  // 1. Public routes (Landing Page)
+  {
+    path: '',
+    component: PublicLayout,
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/landing/landing').then((m) => m.Landing),
+        title: 'MediCare - Home',
       },
-      error: () => {
-        this.appointments = [];
-        this.filteredAppointments = [];
-        this.updateStats();
-      }
-    });
-  }
+      // You can add other public pages here (e.g., /about, /contact)
+    ],
+  },
 
-  updateStats(): void {
-    const today = new Date().toISOString().split('T')[0];
-    this.todayCount = this.appointments.filter((a) => a.appointmentDate === today).length;
-    this.pendingCount = this.appointments.filter((a) => a.status === 'PENDING').length;
-    this.confirmedCount = this.appointments.filter((a) => a.status === 'CONFIRMED').length;
-    this.completedCount = this.appointments.filter((a) => a.status === 'COMPLETED').length;
-  }
+  // 2. Authentication routes (Login, Register)
+  {
+    path: 'auth',
+    component: AuthLayout,
+    children: [
+      {
+        path: 'login',
+        loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
+        title: 'Login',
+      },
+      {
+        path: 'register',
+        loadComponent: () =>
+          import('./features/auth/register/patient-register/patient-register').then(
+            (m) => m.PatientRegister
+          ),
+        title: 'Patient Registration',
+      },
+    ],
+  },
 
-  formatTime(time: string): string {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  }
+  // 3. Patient Dashboard (Protected)
+  {
+    path: 'patient',
+    component: DashboardLayout,
+    canActivate: [authGuard],
+    data: { role: 'PATIENT' }, // Used in your AuthGuard for role checking
+    children: [
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/patient/patient-dashboard/patient-dashboard').then(
+            (m) => m.PatientDashboard
+          ),
+        title: 'Patient Dashboard',
+      },
+      {
+        path: 'my-appointments',
+        loadComponent: () =>
+          import('./features/patient/my-appointments/my-appointments').then(
+            (m) => m.MyAppointments
+          ),
+        title: 'My Appointments',
+      },
+      {
+        path: 'find-doctors',
+        loadComponent: () =>
+          import('./features/patient/find-doctor/find-doctor').then((m) => m.FindDoctorComponent),
+        title: 'Find Doctors',
+      },
+      {
+        path: 'medical-records',
+        loadComponent: () =>
+          import('./features/patient/medical-records/medical-records').then(
+            (m) => m.MedicalRecords
+          ),
+        title: 'Medical Records',
+      },
+      // Add other patient sub-routes here
+    ],
+  },
 
-  filterAppointments(): void {
-    const search = this.searchTerm.toLowerCase();
-    const today = new Date();
+  // 4. Doctor Dashboard (Protected)
+  {
+    path: 'doctor',
+    component: DashboardLayout,
+    canActivate: [authGuard],
+    data: { role: 'DOCTOR' },
+    children: [
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/doctor/doctor-dashboard/doctor-dashboard').then(
+            (m) => m.DoctorDashboard
+          ),
+        title: 'Doctor Dashboard',
+      },
+      {
+        path: 'appointments',
+        loadComponent: () =>
+          import('./features/doctor/doctor-appointments/doctor-appointments').then(
+            (m) => m.DoctorAppointments
+          ),
+        title: 'Appointments',
+      },
+      {
+        path: 'patients',
+        loadComponent: () =>
+          import('./features/doctor/patient-management/patient-management').then(
+            (m) => m.PatientManagement
+          ),
+        title: 'Patient Management',
+      },
+      {
+        path: 'availability',
+        loadComponent: () =>
+          import('./features/doctor/doctor-availability/doctor-availability').then(
+            (m) => m.DoctorAvailability
+          ),
+        title: 'Doctor Availability',
+      },
+    ],
+  },
 
-    this.filteredAppointments = this.appointments.filter((a) => {
-      const matchesSearch = a.patient.name.toLowerCase().includes(search);
-      const matchesStatus = this.statusFilter === 'all' || a.status === this.statusFilter;
-      const appointmentDate = new Date(a.appointmentDate);
-      let matchesDate = true;
+  // 5. Admin Dashboard (Protected)
+  {
+    path: 'admin',
+    component: DashboardLayout,
+    canActivate: [authGuard],
+    data: { role: 'ADMIN' },
+    children: [
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/admin/admin-dashboard/admin-dashboard').then((m) => m.AdminDashboard),
+        title: 'Admin Dashboard',
+      },
+    ],
+  },
 
-      if (this.dateFilter === 'today') {
-        matchesDate = appointmentDate.toDateString() === today.toDateString();
-      } else if (this.dateFilter === 'tomorrow') {
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
-        matchesDate = appointmentDate.toDateString() === tomorrow.toDateString();
-      } else if (this.dateFilter === 'week') {
-        const weekFromNow = new Date(today);
-        weekFromNow.setDate(today.getDate() + 7);
-        matchesDate = appointmentDate >= today && appointmentDate <= weekFromNow;
-      }
+  // 6. Generic Dashboard Redirect
+  {
+    path: 'dashboard',
+    canActivate: [authGuard],
+    children: [], // This route is handled by the AuthGuard to redirect users based on their role (PATIENT, DOCTOR, ADMIN)
+  },
 
-      return matchesSearch && matchesStatus && matchesDate;
-    });
-  }
-
-  confirmAppointment(id: number): void {
-    const appointment = this.appointments.find((a) => a.appointmentId === id);
-    if (!appointment) return;
-
-    if (confirm(`Confirm appointment with ${appointment.patient.name}?`)) {
-      appointment.status = 'CONFIRMED';
-      this.updateStats();
-      this.filterAppointments();
-      alert(`✅ Appointment confirmed for ${appointment.patient.name}`);
-    }
-  }
-
-  cancelAppointment(id: number): void {
-    const appointment = this.appointments.find((a) => a.appointmentId === id);
-    if (!appointment) return;
-
-    const reason = prompt('Please provide a reason for cancellation:');
-    if (reason) {
-      appointment.status = 'CANCELED';
-      this.updateStats();
-      this.filterAppointments();
-      alert(`❌ Appointment cancelled for ${appointment.patient.name}`);
-    }
-  }
-
-  startConsultation(id: number): void {
-    alert(`🩺 Starting consultation for appointment ID: ${id}`);
-  }
-
-  viewNotes(notes: string): void {
-    alert(`📝 Consultation Notes:\n\n${notes}`);
-  }
-
-  getInitials(name: string): string {
-    if (!name) return '';
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase();
-  }
-}
+  // 7. Wildcard route (404/Redirect)
+  {
+    path: '**',
+    redirectTo: '', // Redirects unknown paths back to the home/landing page
+    pathMatch: 'full',
+  },
+];
