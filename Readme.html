@@ -1,483 +1,355 @@
-import { DoctorResponseDTO } from './doctor-interface';
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of, catchError } from 'rxjs';
+import { MedicalRecordResponseDTO } from '../../models/medicalrecord-interface';
 
-export interface AppointmentDTO {
-  doctorId: number;
-  appointmentDate: string;
-  startTime: string;
-  endTime: string;
-  reason?: string;
-}
-
-export interface AppointmentResponseDTO {
-  appointmentId: number;
-  appointmentDate: string;
-  startTime: string;
-  endTime: string;
-  reason: string;
-  status: string;
-  patient: PatientResponseDTO;
-  doctor: DoctorResponseDTO;
-}
-
-export interface PatientResponseDTO {
-  patientId: number;
-  name: string;
-  email: string;
-  contactNumber: string;
-  address: string;
-  gender: string;
-  dateOfBirth: string;
-  bloodGroup: string;
-}
-
-
-
-
-
-
-
-
-export interface MedicalRecordResponseDTO {
-  recordId: number;
-  patientId: number;
-  doctorId: number;
-  patientName: string;
-  doctorName: string;
-  reason: string;
-  diagnosis: string;
-  notes: string;
-  prescriptions: PrescriptionResponseDTO[];
-  createdAt: string;
-}
-
-export interface PrescriptionResponseDTO {
-  prescriptionId: number;
-  medicationName: string;
-  dosage: string;
-  instructions: string;
-  prescribedAt: string;
-}
-
-
-
-
-
-
-export interface DoctorResponseDTO {
-  doctorId: number;
-  doctorName: string;
-  specialization: string;
-  contactNumber: string;
-  email: string;
-  address: string;
-  licenseNumber: string;
-  yearsOfExperience: number;
-  consultationFee: number;
-}
-
-
-
-
-export interface NotificationResponseDTO {
-  id: number;
-  appointmentId: number;
-  recipientType: string;
-  recipientId: number;
-  title: string;
-  message: string;
-  createdAt: string;
-  read: boolean;
-}
-
-
-
-
-
-export interface Patient {
-  patientId: number;
-  name: string;
-  email: string;
-  contactNumber: string;
-  address: string;
-  gender: string;
-  dateOfBirth: string;
-  bloodGroup: string;
-}
-
-export interface PatientDTO {
-  name: string;
-  dateOfBirth: string;
-  gender: string;
-  contactNumber: string;
-  email: string;
-  address: string;
-  bloodGroup: string;
-}
-
-
-
-
-
-<div class="flex justify-between items-center mb-8 bg-white p-4 rounded-lg shadow">
-  <h1 class="text-2xl font-bold text-gray-800">Hello, {{ patient?.name || 'Patient' }}</h1>
-
-  <div class="flex items-center gap-4">
-    <!-- Notification -->
-    <div class="relative">
-      <button
-        (click)="toggleNotifications()"
-        class="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center text-xl hover:bg-gray-200 transition"
-      >
-        🔔 @if (notificationCount > 0) {
-        <span
-          class="absolute top-1 right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white"
-          >{{ notificationCount }}</span
-        >
-        }
-      </button>
-
-      <!-- Notification Dropdown -->
-      @if (showNotifications) {
-      <div
-        class="absolute right-0 mt-3 w-96 bg-white rounded-xl shadow-lg max-h-96 overflow-y-auto z-50"
-      >
-        <div class="flex justify-between items-center p-4 border-b">
-          <h3 class="font-semibold text-gray-800">Notifications</h3>
-          <button class="text-blue-600 text-sm font-medium">Mark all as read</button>
-        </div>
-        <div class="divide-y divide-gray-200">
-          <!-- Notification items will be dynamically loaded -->
-          <div class="p-4 bg-blue-50">
-            <h4 class="font-semibold text-gray-800">Appointment Confirmed</h4>
-            <p class="text-gray-600 text-sm">
-              Dr. John Smith confirmed your appointment for tomorrow at 10:00 AM
-            </p>
-            <span class="text-gray-400 text-xs">10 minutes ago</span>
-          </div>
-        </div>
-      </div>
-      }
-    </div>
-
-    <!-- Profile -->
-    <div class="relative">
-      <div
-        (click)="toggleProfile()"
-        class="flex items-center gap-3 bg-gray-100 p-2 rounded-lg cursor-pointer hover:bg-gray-200 transition"
-      >
-        <div
-          class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold flex items-center justify-center"
-        >
-          {{ getInitials(patient?.name) }}
-        </div>
-        <div class="text-left">
-          <div class="font-semibold text-gray-800 text-sm">{{ patient?.name || 'Patient' }}</div>
-          <div class="text-gray-500 text-xs">Patient ID: P{{ patient?.patientId }}</div>
-        </div>
-        <span class="text-gray-500 text-xs">▼</span>
-      </div>
-
-      <!-- Profile Dropdown -->
-      @if (showProfile) {
-      <div class="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-lg z-50">
-        <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">👤 My Profile</a>
-        <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">⚙️ Settings</a>
-        <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">💳 Billing</a>
-        <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">❓ Help & Support</a>
-        <a href="#" class="flex items-center gap-2 p-3 text-red-600 hover:bg-gray-100">🚪 Logout</a>
-      </div>
-      }
-    </div>
-  </div>
-</div>
-
-
-
-
-import { Component, Input } from '@angular/core';
-import { Patient } from '../../../models/patient-interface';
-
-@Component({
-  selector: 'app-header',
-  standalone: true,
-  imports: [],
-  templateUrl: './header.html',
+@Injectable({
+  providedIn: 'root',
 })
-export class Header {
-  @Input() patient: Patient | null = null;
-  @Input() notificationCount: number = 0;
+export class MedicalRecordService {
+  private baseUrl = '/api';
+  private useMockData = false; // Use real backend
 
-  showNotifications = false;
-  showProfile = false;
+  constructor(private http: HttpClient) {}
 
-  toggleNotifications() {
-    this.showNotifications = !this.showNotifications;
-    this.showProfile = false;
+  getRecordsForPatient(): Observable<MedicalRecordResponseDTO[]> {
+    if (this.useMockData) {
+      return of(this.getMockMedicalRecords());
+    }
+    
+    return this.http.get<MedicalRecordResponseDTO[]>(`${this.baseUrl}/patients/me/medical-records`).pipe(
+      catchError(() => of(this.getMockMedicalRecords()))
+    );
   }
 
-  toggleProfile() {
-    this.showProfile = !this.showProfile;
-    this.showNotifications = false;
-  }
-  getInitials(name: string | undefined): string {
-    if (!name) return 'P';
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase();
+  private getMockMedicalRecords(): MedicalRecordResponseDTO[] {
+    return [
+      {
+        recordId: 1,
+        patientId: 1,
+        doctorId: 1,
+        patientName: 'John Doe',
+        doctorName: 'Dr. Sarah Johnson',
+        reason: 'Regular checkup',
+        diagnosis: 'Hypertension',
+        notes: 'Patient responding well to medication. Blood pressure under control.',
+        prescriptions: [
+          {
+            prescriptionId: 1,
+            medicationName: 'Lisinopril',
+            dosage: '10mg',
+            instructions: 'Take once daily with food',
+            prescribedAt: '2024-01-15T10:00:00Z'
+          }
+        ],
+        createdAt: '2024-01-15T10:00:00Z'
+      },
+      {
+        recordId: 2,
+        patientId: 1,
+        doctorId: 2,
+        patientName: 'John Doe',
+        doctorName: 'Dr. Michael Brown',
+        reason: 'Headache consultation',
+        diagnosis: 'Migraine',
+        notes: 'Patient reports reduced frequency of headaches. Continue current treatment.',
+        prescriptions: [
+          {
+            prescriptionId: 2,
+            medicationName: 'Sumatriptan',
+            dosage: '50mg',
+            instructions: 'Take as needed for migraine attacks',
+            prescribedAt: '2024-01-10T14:30:00Z'
+          }
+        ],
+        createdAt: '2024-01-10T14:30:00Z'
+      }
+    ];
   }
 }
 
 
 
+      import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of, catchError } from 'rxjs';
+import { NotificationResponseDTO } from '../../models/notification-interface';
 
-<aside class="w-64 bg-white shadow-md p-8">
-  <div class="mb-8 border-b border-gray-200 pb-4">
-    <div class="text-2xl font-bold text-blue-600 flex items-center gap-2">⚕ MediCare</div>
-  </div>
-  <ul class="space-y-2">
-    <li>
-      <a
-        [routerLink]="['/patient/dashboard']"
-        routerLinkActive="border-l-4 border-blue-600 bg-blue-50"
-        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
-        >📊 Dashboard</a
-      >
-    </li>
-    <li>
-      <a
-        [routerLink]="['/patient/my-appointments']"
-        routerLinkActive="border-l-4 border-blue-600 bg-blue-50"
-        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
-        >📅 My Appointments</a
-      >
-    </li>
-    <li>
-      <a
-        [routerLink]="['/patient/find-doctors']"
-        routerLinkActive="border-l-4 border-blue-600 bg-blue-50"
-        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
-        >🔍 Find Doctors</a
-      >
-    </li>
-    <li>
-      <a
-        [routerLink]="['/patient/medical-records']"
-        routerLinkActive="border-l-4 border-blue-600 bg-blue-50"
-        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
-        >📋 Medical Records</a
-      >
-    </li>
-    <li>
-      <a
-        href="#"
-        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
-        >💊 Prescriptions</a
-      >
-    </li>
-    <li>
-      <a
-        href="#"
-        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
-        >🔔 Notifications</a
-      >
-    </li>
-    <li>
-      <a
-        href="#"
-        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition"
-        >⚙️ Settings</a
-      >
-    </li>
-    <li>
-      <button
-        (click)="logout()"
-        class="flex items-center gap-2 p-3 text-gray-700 font-medium rounded hover:bg-gray-100 transition w-full text-left"
-      >
-        🚪 Logout
-      </button>
-    </li>
-  </ul>
-</aside>
-
-
-
-
-import { Component, inject, OnInit } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { PatientAuthService } from '../../core/services/patient-auth.service';
-
-@Component({
-  selector: 'app-sidebar',
-  standalone: true,
-  imports: [RouterLink, RouterLinkActive],
-  templateUrl: './sidebar.html',
+@Injectable({
+  providedIn: 'root',
 })
-export class Sidebar {
-  private patientAuthService = inject(PatientAuthService);
-  private router = inject(Router);
+export class NotificationService {
+  private baseUrl = '/api';
+  private useMockData = false; // Use real backend
+
+  constructor(private http: HttpClient) {}
+
+  getPatientNotifications(): Observable<NotificationResponseDTO[]> {
+    if (this.useMockData) {
+      return of(this.getMockNotifications());
+    }
+    
+    return this.http.get<NotificationResponseDTO[]>(`${this.baseUrl}/patients/me/notifications`).pipe(
+      catchError(() => of(this.getMockNotifications()))
+    );
+  }
+
+  markAsRead(notificationId: number): Observable<void> {
+    if (this.useMockData) {
+      return of();
+    }
+    
+    return this.http.put<void>(`${this.baseUrl}/${notificationId}/read`, {}).pipe(
+      catchError(() => of())
+    );
+  }
+
+  markAllAsRead(): Observable<void> {
+    if (this.useMockData) {
+      return of();
+    }
+    
+    return this.http.put<void>(`${this.baseUrl}/notifications/read-all`, {}).pipe(
+      catchError(() => of())
+    );
+  }
+
+  private getMockNotifications(): NotificationResponseDTO[] {
+    return [
+      {
+        id: 1,
+        appointmentId: 1,
+        recipientType: 'PATIENT',
+        recipientId: 1,
+        title: 'Appointment Confirmed',
+        message: 'Your appointment with Dr. Sarah Johnson on January 20th at 9:00 AM has been confirmed.',
+        read: false,
+        createdAt: '2024-01-15T10:30:00Z'
+      },
+      {
+        id: 2,
+        appointmentId: 2,
+        recipientType: 'PATIENT',
+        recipientId: 1,
+        title: 'Prescription Ready',
+        message: 'Your prescription for Lisinopril is ready for pickup at the pharmacy.',
+        read: false,
+        createdAt: '2024-01-14T14:20:00Z'
+      },
+      {
+        id: 3,
+        appointmentId: 0,
+        recipientType: 'PATIENT',
+        recipientId: 1,
+        title: 'Test Results Available',
+        message: 'Your recent blood test results are now available in your medical records.',
+        read: true,
+        createdAt: '2024-01-12T09:15:00Z'
+      }
+    ];
+  }
+}
+
+
+      import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { AppointmentDTO, AppointmentResponseDTO } from '../../models/appointment-interface';
+import { environment } from '../../environments/environment';
+import { DoctorResponseDTO } from '../../models/doctor-interface';
+import { Patient } from '../../models/patient-interface';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class AppointmentService {
+  private api = environment.apiUrl; // http://localhost:8080/api
+
+  constructor(private http: HttpClient) {}
+
+  bookAppointment(appointmentDTO: AppointmentDTO): Observable<AppointmentResponseDTO> {
+    return this.http.post<AppointmentResponseDTO>(
+      `${this.api}${environment.patient.addAppointments}`,
+      appointmentDTO
+    );
+  }
+
+  getAppointmentsForPatient(): Observable<AppointmentResponseDTO[]> {
+    return this.http.get<AppointmentResponseDTO[]>(
+      `${this.api}${environment.patient.getAppointments}`
+    );
+  }
+
+  getAppointmentById(appointmentId: number): Observable<AppointmentResponseDTO> {
+    return this.http.get<AppointmentResponseDTO>(`${this.api}/appointments/${appointmentId}`);
+  }
+
+  updateAppointment(
+    appointmentId: number,
+    appointmentDTO: AppointmentDTO
+  ): Observable<AppointmentResponseDTO> {
+    return this.http.patch<AppointmentResponseDTO>(
+      `${this.api}${environment.patient.updateAppointment.replace(
+        '{appointmentId}',
+        String(appointmentId)
+      )}`,
+      appointmentDTO
+    );
+  }
+
+  cancelAppointment(appointmentId: number): Observable<AppointmentResponseDTO> {
+    return this.http.patch<AppointmentResponseDTO>(
+      `${this.api}${environment.patient.cancelAppointment.replace(
+        '{appointmentId}',
+        String(appointmentId)
+      )}`,
+      {}
+    );
+  }
+
+  // Doctor: get own appointments
+  getAppointmentsForDoctor(): Observable<AppointmentResponseDTO[]> {
+    return this.http.get<AppointmentResponseDTO[]>(`${this.api}/doctors/me/appointments`);
+  }
 }
 
 
 
 
+      import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of, catchError } from 'rxjs';
+import { Patient, PatientDTO } from '../../models/patient-interface';
+import { DoctorResponseDTO } from '../../models/doctor-interface';
 
-import { Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth-guard';
+@Injectable({
+  providedIn: 'root',
+})
+export class PatientService {
+  private baseUrl = '/api/patients';
+  private useMockData = false; // Use real backend
 
-// --- Import all components and layouts used in the routes ---
-import { PublicLayout } from './layouts/public-layout/public-layout';
-import { DashboardLayout } from './layouts/dashboard-layout/dashboard-layout';
-import { AuthLayout } from './layouts/auth-layout/auth-layout';
+  constructor(private http: HttpClient) {}
 
-export const routes: Routes = [
-  // 1. Public routes (Landing Page)
-  {
-    path: '',
-    component: PublicLayout,
-    children: [
-      {
-        path: '',
-        loadComponent: () => import('./features/landing/landing').then((m) => m.Landing),
-        title: 'MediCare - Home',
-      },
-      // You can add other public pages here (e.g., /about, /contact)
-    ],
-  },
+  getPatient(): Observable<Patient> {
+    if (this.useMockData) {
+      return of(this.getMockPatient());
+    }
+    
+    return this.http.get<Patient>(`${this.baseUrl}/me`).pipe(
+      catchError(() => of(this.getMockPatient()))
+    );
+  }
 
-  // 2. Authentication routes (Login, Register)
-  {
-    path: 'auth',
-    component: AuthLayout,
-    children: [
-      {
-        path: 'login',
-        loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
-        title: 'Login',
-      },
-      {
-        path: 'register',
-        loadComponent: () =>
-          import('./features/auth/register/patient-register/patient-register').then(
-            (m) => m.PatientRegister
-          ),
-        title: 'Patient Registration',
-      },
-    ],
-  },
+  updatePatient(patientDTO: PatientDTO): Observable<Patient> {
+    if (this.useMockData) {
+      return of(this.getMockPatient());
+    }
+    
+    return this.http.patch<Patient>(`${this.baseUrl}/me`, patientDTO).pipe(
+      catchError(() => of(this.getMockPatient()))
+    );
+  }
 
-  // 3. Patient Dashboard (Protected)
-  {
-    path: 'patient',
-    component: DashboardLayout,
-    canActivate: [authGuard],
-    data: { role: 'PATIENT' }, // Used in your AuthGuard for role checking
-    children: [
-      {
-        path: 'dashboard',
-        loadComponent: () =>
-          import('./features/patient/patient-dashboard/patient-dashboard').then(
-            (m) => m.PatientDashboard
-          ),
-        title: 'Patient Dashboard',
-      },
-      {
-        path: 'my-appointments',
-        loadComponent: () =>
-          import('./features/patient/my-appointments/my-appointments').then(
-            (m) => m.MyAppointments
-          ),
-        title: 'My Appointments',
-      },
-      {
-        path: 'find-doctors',
-        loadComponent: () =>
-          import('./features/patient/find-doctor/find-doctor').then((m) => m.FindDoctorComponent),
-        title: 'Find Doctors',
-      },
-      {
-        path: 'medical-records',
-        loadComponent: () =>
-          import('./features/patient/medical-records/medical-records').then(
-            (m) => m.MedicalRecords
-          ),
-        title: 'Medical Records',
-      },
-      // Add other patient sub-routes here
-    ],
-  },
+  searchDoctorByName(name: string): Observable<DoctorResponseDTO[]> {
+    if (this.useMockData) {
+      return of(this.getMockDoctors().filter(doctor => 
+        doctor.doctorName.toLowerCase().includes(name.toLowerCase())
+      ));
+    }
+    
+    return this.http.get<DoctorResponseDTO[]>(`${this.baseUrl}/doctor-name?name=${name}`).pipe(
+      catchError(() => of(this.getMockDoctors().filter(doctor => 
+        doctor.doctorName.toLowerCase().includes(name.toLowerCase())
+      )))
+    );
+  }
 
-  // 4. Doctor Dashboard (Protected)
-  {
-    path: 'doctor',
-    component: DashboardLayout,
-    canActivate: [authGuard],
-    data: { role: 'DOCTOR' },
-    children: [
-      {
-        path: 'dashboard',
-        loadComponent: () =>
-          import('./features/doctor/doctor-dashboard/doctor-dashboard').then(
-            (m) => m.DoctorDashboard
-          ),
-        title: 'Doctor Dashboard',
-      },
-      {
-        path: 'appointments',
-        loadComponent: () =>
-          import('./features/doctor/doctor-appointments/doctor-appointments').then(
-            (m) => m.DoctorAppointments
-          ),
-        title: 'Appointments',
-      },
-      {
-        path: 'patients',
-        loadComponent: () =>
-          import('./features/doctor/patient-management/patient-management').then(
-            (m) => m.PatientManagement
-          ),
-        title: 'Patient Management',
-      },
-      {
-        path: 'availability',
-        loadComponent: () =>
-          import('./features/doctor/doctor-availability/doctor-availability').then(
-            (m) => m.DoctorAvailability
-          ),
-        title: 'Doctor Availability',
-      },
-    ],
-  },
+  searchDoctorBySpecialization(specialization: string): Observable<DoctorResponseDTO[]> {
+    if (this.useMockData) {
+      return of(this.getMockDoctors().filter(doctor => 
+        doctor.specialization.toLowerCase().includes(specialization.toLowerCase())
+      ));
+    }
+    
+    return this.http.get<DoctorResponseDTO[]>(
+      `${this.baseUrl}/doctor-specialization?specialization=${specialization}`
+    ).pipe(
+      catchError(() => of(this.getMockDoctors().filter(doctor => 
+        doctor.specialization.toLowerCase().includes(specialization.toLowerCase())
+      )))
+    );
+  }
 
-  // 5. Admin Dashboard (Protected)
-  {
-    path: 'admin',
-    component: DashboardLayout,
-    canActivate: [authGuard],
-    data: { role: 'ADMIN' },
-    children: [
+  getAllDoctors(): Observable<DoctorResponseDTO[]> {
+    if (this.useMockData) {
+      return of(this.getMockDoctors());
+    }
+    
+    return this.http.get<DoctorResponseDTO[]>(`${this.baseUrl}/all-doctors`).pipe(
+      catchError(() => of(this.getMockDoctors()))
+    );
+  }
+
+  private getMockPatient(): Patient {
+    return {
+      patientId: 1,
+      name: 'John Doe',
+      email: 'john.doe@email.com',
+      contactNumber: '+1-555-0123',
+      address: '123 Main St, City, State',
+      gender: 'Male',
+      dateOfBirth: '1990-01-01',
+      bloodGroup: 'O+'
+    };
+  }
+
+  private getMockDoctors(): DoctorResponseDTO[] {
+    return [
       {
-        path: 'dashboard',
-        loadComponent: () =>
-          import('./features/admin/admin-dashboard/admin-dashboard').then((m) => m.AdminDashboard),
-        title: 'Admin Dashboard',
+        doctorId: 1,
+        doctorName: 'Dr. Sarah Johnson',
+        specialization: 'Cardiology',
+        contactNumber: '+1-555-0101',
+        email: 'sarah.johnson@hospital.com',
+        address: '123 Medical Center, City, State',
+        licenseNumber: 'MD123456',
+        yearsOfExperience: 10,
+        consultationFee: 150
       },
-    ],
-  },
-
-  // 6. Generic Dashboard Redirect
-  {
-    path: 'dashboard',
-    canActivate: [authGuard],
-    children: [], // This route is handled by the AuthGuard to redirect users based on their role (PATIENT, DOCTOR, ADMIN)
-  },
-
-  // 7. Wildcard route (404/Redirect)
-  {
-    path: '**',
-    redirectTo: '', // Redirects unknown paths back to the home/landing page
-    pathMatch: 'full',
-  },
-];
-
+      {
+        doctorId: 2,
+        doctorName: 'Dr. Michael Brown',
+        specialization: 'Neurology',
+        contactNumber: '+1-555-0102',
+        email: 'michael.brown@hospital.com',
+        address: '456 Health Plaza, City, State',
+        licenseNumber: 'MD123457',
+        yearsOfExperience: 8,
+        consultationFee: 175
+      },
+      {
+        doctorId: 3,
+        doctorName: 'Dr. Emily Davis',
+        specialization: 'Pediatrics',
+        contactNumber: '+1-555-0103',
+        email: 'emily.davis@hospital.com',
+        address: '789 Children Hospital, City, State',
+        licenseNumber: 'MD123458',
+        yearsOfExperience: 12,
+        consultationFee: 125
+      },
+      {
+        doctorId: 4,
+        doctorName: 'Dr. Robert Wilson',
+        specialization: 'General Medicine',
+        contactNumber: '+1-555-0104',
+        email: 'robert.wilson@hospital.com',
+        address: '321 Family Clinic, City, State',
+        licenseNumber: 'MD123459',
+        yearsOfExperience: 15,
+        consultationFee: 100
+      }
+    ];
+  }
+}
