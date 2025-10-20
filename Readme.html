@@ -1,1230 +1,1135 @@
-1. First, update the models:
-typescript
-// src/app/models/patient.model.ts
-export interface Patient {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-  dateOfBirth: string;
-  address: string;
-  gender: 'MALE' | 'FEMALE' | 'OTHER';
-  bloodGroup?: string;
-  emergencyContact?: string;
-  insuranceId?: string;
-  status: 'ACTIVE' | 'INACTIVE' | 'PENDING';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Appointment {
-  id: string;
-  patientId: string;
-  doctorId: string;
-  doctorName: string;
-  appointmentDate: string;
-  appointmentTime: string;
-  type: string;
-  reason: string;
-  status: 'SCHEDULED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'PENDING';
-  notes?: string;
-  createdAt: string;
-}
-
-export interface Prescription {
-  id: string;
-  patientId: string;
-  doctorId: string;
-  doctorName: string;
-  medicineName: string;
-  dosage: string;
-  frequency: string;
-  duration: string;
-  instructions?: string;
-  prescribedDate: string;
-  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
-}
-
-export interface MedicalRecord {
-  id: string;
-  patientId: string;
-  doctorId: string;
-  doctorName: string;
-  visitDate: string;
-  diagnosis: string;
-  symptoms: string;
-  treatment: string;
-  medications: string[];
-  notes?: string;
-  followUpDate?: string;
-}
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-}
-
-export interface PaginatedResponse<T> {
-  content: T[];
-  totalElements: number;
-  totalPages: number;
-  size: number;
-  number: number;
-}
-2. Patient Service with Backend Connectivity
-typescript
-// src/app/services/patient.service.ts
-import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
-import { 
-  Patient, 
-  Appointment, 
-  Prescription, 
-  MedicalRecord, 
-  ApiResponse, 
-  PaginatedResponse 
-} from '../models/patient.model';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class PatientService {
-  private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/patients`;
-
-  // Patient CRUD Operations
-  getPatients(page: number = 0, size: number = 10, search: string = ''): Observable<PaginatedResponse<Patient>> {
-    let params = new HttpParams()
-      .set('page', page.toString())
-      .set('size', size.toString());
-    
-    if (search) {
-      params = params.set('search', search);
-    }
-
-    return this.http.get<PaginatedResponse<Patient>>(this.apiUrl, { params });
-  }
-
-  getPatientById(id: string): Observable<ApiResponse<Patient>> {
-    return this.http.get<ApiResponse<Patient>>(`${this.apiUrl}/${id}`);
-  }
-
-  createPatient(patient: Partial<Patient>): Observable<ApiResponse<Patient>> {
-    return this.http.post<ApiResponse<Patient>>(this.apiUrl, patient);
-  }
-
-  updatePatient(id: string, patient: Partial<Patient>): Observable<ApiResponse<Patient>> {
-    return this.http.put<ApiResponse<Patient>>(`${this.apiUrl}/${id}`, patient);
-  }
-
-  deletePatient(id: string): Observable<ApiResponse<void>> {
-    return this.http.delete<ApiResponse<void>>(`${this.apiUrl}/${id}`);
-  }
-
-  // Appointment Operations
-  getPatientAppointments(patientId: string): Observable<ApiResponse<Appointment[]>> {
-    return this.http.get<ApiResponse<Appointment[]>>(`${this.apiUrl}/${patientId}/appointments`);
-  }
-
-  bookAppointment(appointment: Partial<Appointment>): Observable<ApiResponse<Appointment>> {
-    return this.http.post<ApiResponse<Appointment>>(`${this.apiUrl}/appointments`, appointment);
-  }
-
-  updateAppointment(id: string, appointment: Partial<Appointment>): Observable<ApiResponse<Appointment>> {
-    return this.http.put<ApiResponse<Appointment>>(`${this.apiUrl}/appointments/${id}`, appointment);
-  }
-
-  cancelAppointment(id: string): Observable<ApiResponse<Appointment>> {
-    return this.http.patch<ApiResponse<Appointment>>(`${this.apiUrl}/appointments/${id}/cancel`, {});
-  }
-
-  // Prescription Operations
-  getPatientPrescriptions(patientId: string): Observable<ApiResponse<Prescription[]>> {
-    return this.http.get<ApiResponse<Prescription[]>>(`${this.apiUrl}/${patientId}/prescriptions`);
-  }
-
-  createPrescription(prescription: Partial<Prescription>): Observable<ApiResponse<Prescription>> {
-    return this.http.post<ApiResponse<Prescription>>(`${this.apiUrl}/prescriptions`, prescription);
-  }
-
-  // Medical Records Operations
-  getPatientMedicalRecords(patientId: string): Observable<ApiResponse<MedicalRecord[]>> {
-    return this.http.get<ApiResponse<MedicalRecord[]>>(`${this.apiUrl}/${patientId}/medical-records`);
-  }
-
-  createMedicalRecord(record: Partial<MedicalRecord>): Observable<ApiResponse<MedicalRecord>> {
-    return this.http.post<ApiResponse<MedicalRecord>>(`${this.apiUrl}/medical-records`, record);
-  }
-}
-3. Doctor Service
-typescript
-// src/app/services/doctor.service.ts
-import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
-import { ApiResponse, PaginatedResponse } from '../models/patient.model';
-
-export interface Doctor {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  specialization: string;
-  phoneNumber: string;
-  licenseNumber: string;
-  experience: number;
-  consultationFee: number;
-  availability: string[];
-  rating: number;
-  status: 'ACTIVE' | 'INACTIVE';
-}
-
-@Injectable({
-  providedIn: 'root'
-})
-export class DoctorService {
-  private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/doctors`;
-
-  getDoctors(page: number = 0, size: number = 10, specialization?: string): Observable<PaginatedResponse<Doctor>> {
-    let params = new HttpParams()
-      .set('page', page.toString())
-      .set('size', size.toString());
-    
-    if (specialization) {
-      params = params.set('specialization', specialization);
-    }
-
-    return this.http.get<PaginatedResponse<Doctor>>(this.apiUrl, { params });
-  }
-
-  getDoctorById(id: string): Observable<ApiResponse<Doctor>> {
-    return this.http.get<ApiResponse<Doctor>>(`${this.apiUrl}/${id}`);
-  }
-
-  getDoctorAppointments(doctorId: string): Observable<ApiResponse<any[]>> {
-    return this.http.get<ApiResponse<any[]>>(`${this.apiUrl}/${doctorId}/appointments`);
-  }
-
-  updateAppointmentStatus(appointmentId: string, status: string): Observable<ApiResponse<any>> {
-    return this.http.patch<ApiResponse<any>>(`${this.apiUrl}/appointments/${appointmentId}/status`, { status });
-  }
-}
-4. Updated Dashboard Component with Full Functionality
-typescript
-// src/app/components/dashboard/dashboard.component.ts
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { PatientService } from '../../services/patient.service';
-import { DoctorService } from '../../services/doctor.service';
-import { Patient, Appointment, Prescription, MedicalRecord, Doctor } from '../../models/patient.model';
-
-type DashboardType = 'doctor' | 'patient' | 'admin';
+import { Router } from '@angular/router';
+import { Header } from '../../../shared/patient/header/header';
+import { Sidebar } from '../../../shared/sidebar/sidebar';
+import { DoctorResponseDTO } from '../../../models/doctor-interface';
+import { Patient } from '../../../models/patient-interface';
+import { AppointmentDTO } from '../../../models/appointment-interface';
+import { PatientService } from '../../../core/services/patient.service';
+import { AppointmentService } from '../../../core/services/patient-appointment.service';
 
 @Component({
-  selector: 'app-dashboard',
+  selector: 'app-find-doctor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
-  templateUrl: './dashboard.component.html'
+  imports: [CommonModule, FormsModule, Sidebar, Header],
+  templateUrl: './find-doctor.html',
+  styleUrls: ['./find-doctor.css'],
 })
-export class DashboardComponent implements OnInit {
-  private patientService = inject(PatientService);
-  private doctorService = inject(DoctorService);
+export class FindDoctorComponent implements OnInit {
+  doctors: DoctorResponseDTO[] = [];
+  filteredDoctors: DoctorResponseDTO[] = [];
+  patient: Patient | null = null;
+  searchTerm: string = '';
+  searchType: 'name' | 'specialization' = 'name';
+  showBookingModal: boolean = false;
+  selectedDoctor: DoctorResponseDTO | null = null;
 
-  activeDashboard = signal<DashboardType>('doctor');
-  
-  // Data signals
-  patients = signal<Patient[]>([]);
-  doctors = signal<Doctor[]>([]);
-  appointments = signal<Appointment[]>([]);
-  prescriptions = signal<Prescription[]>([]);
-  medicalRecords = signal<MedicalRecord[]>([]);
-  
-  // UI state
-  isLoading = signal(false);
-  error = signal<string | null>(null);
-  searchTerm = signal('');
-  currentPage = signal(0);
-  pageSize = signal(10);
-  totalElements = signal(0);
-
-  // Form states
-  showPatientForm = signal(false);
-  showAppointmentForm = signal(false);
-  showPrescriptionForm = signal(false);
-  selectedPatient = signal<Patient | null>(null);
-  selectedDoctor = signal<Doctor | null>(null);
-
-  // Form models
-  patientForm = {
-    firstName: '',
-    lastName: '',
-    email: '',
-    phoneNumber: '',
-    dateOfBirth: '',
-    address: '',
-    gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
-    bloodGroup: '',
-    emergencyContact: '',
-    insuranceId: ''
-  };
-
-  appointmentForm = {
-    patientId: '',
-    doctorId: '',
+  appointmentData: AppointmentDTO = {
+    doctorId: 0,
     appointmentDate: '',
-    appointmentTime: '',
-    type: 'CONSULTATION',
+    startTime: '',
+    endTime: '',
     reason: '',
-    notes: ''
   };
 
-  prescriptionForm = {
-    patientId: '',
-    doctorId: '',
-    medicineName: '',
-    dosage: '',
-    frequency: '',
-    duration: '',
-    instructions: ''
-  };
+  constructor(
+    private patientService: PatientService,
+    private appointmentService: AppointmentService,
+    private router: Router
+  ) {}
 
-  ngOnInit() {
-    this.loadInitialData();
+  ngOnInit(): void {
+    this.loadPatientData();
+    this.loadAllDoctors();
   }
 
-  async loadInitialData() {
-    await Promise.all([
-      this.loadPatients(),
-      this.loadDoctors(),
-      this.loadAppointments(),
-      this.loadPrescriptions()
-    ]);
+  loadPatientData(): void {
+    this.patientService.getPatient().subscribe({
+      next: (patient) => {
+        this.patient = patient;
+      },
+      error: (error) => {
+        console.error('Error loading patient data:', error);
+      },
+    });
   }
 
-  async loadPatients() {
-    this.isLoading.set(true);
-    try {
-      const response = await this.patientService.getPatients(
-        this.currentPage(), 
-        this.pageSize(), 
-        this.searchTerm()
-      ).toPromise();
-      
-      if (response) {
-        this.patients.set(response.content);
-        this.totalElements.set(response.totalElements);
-      }
-    } catch (error) {
-      this.error.set('Failed to load patients');
-      console.error('Error loading patients:', error);
-    } finally {
-      this.isLoading.set(false);
+  loadAllDoctors(): void {
+    this.patientService.getAllDoctors().subscribe({
+      next: (doctors) => {
+        this.doctors = doctors;
+        this.filteredDoctors = doctors;
+      },
+      error: (error) => {
+        console.error('Error loading doctors:', error);
+      },
+    });
+  }
+
+  searchDoctors(): void {
+    if (!this.searchTerm.trim()) {
+      this.filteredDoctors = this.doctors;
+      return;
+    }
+
+    if (this.searchType === 'name') {
+      this.patientService.searchDoctorByName(this.searchTerm).subscribe({
+        next: (doctors) => {
+          this.filteredDoctors = doctors;
+        },
+        error: (error) => {
+          console.error('Error searching doctors by name:', error);
+        },
+      });
+    } else {
+      this.patientService.searchDoctorBySpecialization(this.searchTerm).subscribe({
+        next: (doctors) => {
+          this.filteredDoctors = doctors;
+        },
+        error: (error) => {
+          console.error('Error searching doctors by specialization:', error);
+        },
+      });
     }
   }
 
-  async loadDoctors() {
-    try {
-      const response = await this.doctorService.getDoctors().toPromise();
-      if (response) {
-        this.doctors.set(response.content);
-      }
-    } catch (error) {
-      console.error('Error loading doctors:', error);
-    }
+  openBookingModal(doctor: DoctorResponseDTO): void {
+    this.selectedDoctor = doctor;
+    this.appointmentData.doctorId = doctor.doctorId;
+    this.showBookingModal = true;
   }
 
-  async loadAppointments() {
-    try {
-      // For doctor dashboard, load doctor's appointments
-      if (this.activeDashboard() === 'doctor') {
-        const doctorId = 'current-doctor-id'; // This should come from auth service
-        const response = await this.doctorService.getDoctorAppointments(doctorId).toPromise();
-        if (response) {
-          this.appointments.set(response.data);
-        }
-      } else {
-        // For patient dashboard, load patient's appointments
-        const patientId = 'current-patient-id'; // This should come from auth service
-        const response = await this.patientService.getPatientAppointments(patientId).toPromise();
-        if (response) {
-          this.appointments.set(response.data);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading appointments:', error);
-    }
-  }
-
-  async loadPrescriptions() {
-    try {
-      const patientId = 'current-patient-id'; // This should come from auth service
-      const response = await this.patientService.getPatientPrescriptions(patientId).toPromise();
-      if (response) {
-        this.prescriptions.set(response.data);
-      }
-    } catch (error) {
-      console.error('Error loading prescriptions:', error);
-    }
-  }
-
-  showDashboard(type: DashboardType) {
-    this.activeDashboard.set(type);
-    this.loadInitialData();
-  }
-
-  // Patient Management
-  async createPatient() {
-    try {
-      const response = await this.patientService.createPatient(this.patientForm).toPromise();
-      if (response?.success) {
-        this.showPatientForm.set(false);
-        this.resetPatientForm();
-        await this.loadPatients();
-      }
-    } catch (error) {
-      this.error.set('Failed to create patient');
-      console.error('Error creating patient:', error);
-    }
-  }
-
-  async updatePatient(patient: Patient) {
-    try {
-      const response = await this.patientService.updatePatient(patient.id, this.patientForm).toPromise();
-      if (response?.success) {
-        this.showPatientForm.set(false);
-        this.resetPatientForm();
-        await this.loadPatients();
-      }
-    } catch (error) {
-      this.error.set('Failed to update patient');
-      console.error('Error updating patient:', error);
-    }
-  }
-
-  async deletePatient(patientId: string) {
-    if (confirm('Are you sure you want to delete this patient?')) {
-      try {
-        const response = await this.patientService.deletePatient(patientId).toPromise();
-        if (response?.success) {
-          await this.loadPatients();
-        }
-      } catch (error) {
-        this.error.set('Failed to delete patient');
-        console.error('Error deleting patient:', error);
-      }
-    }
-  }
-
-  editPatient(patient: Patient) {
-    this.selectedPatient.set(patient);
-    this.patientForm = { ...patient };
-    this.showPatientForm.set(true);
-  }
-
-  // Appointment Management
-  async bookAppointment() {
-    try {
-      const response = await this.patientService.bookAppointment(this.appointmentForm).toPromise();
-      if (response?.success) {
-        this.showAppointmentForm.set(false);
-        this.resetAppointmentForm();
-        await this.loadAppointments();
-      }
-    } catch (error) {
-      this.error.set('Failed to book appointment');
-      console.error('Error booking appointment:', error);
-    }
-  }
-
-  async cancelAppointment(appointmentId: string) {
-    if (confirm('Are you sure you want to cancel this appointment?')) {
-      try {
-        const response = await this.patientService.cancelAppointment(appointmentId).toPromise();
-        if (response?.success) {
-          await this.loadAppointments();
-        }
-      } catch (error) {
-        this.error.set('Failed to cancel appointment');
-        console.error('Error canceling appointment:', error);
-      }
-    }
-  }
-
-  async updateAppointmentStatus(appointmentId: string, status: string) {
-    try {
-      const response = await this.doctorService.updateAppointmentStatus(appointmentId, status).toPromise();
-      if (response?.success) {
-        await this.loadAppointments();
-      }
-    } catch (error) {
-      this.error.set('Failed to update appointment status');
-      console.error('Error updating appointment:', error);
-    }
-  }
-
-  // Prescription Management
-  async createPrescription() {
-    try {
-      const response = await this.patientService.createPrescription(this.prescriptionForm).toPromise();
-      if (response?.success) {
-        this.showPrescriptionForm.set(false);
-        this.resetPrescriptionForm();
-        await this.loadPrescriptions();
-      }
-    } catch (error) {
-      this.error.set('Failed to create prescription');
-      console.error('Error creating prescription:', error);
-    }
-  }
-
-  // Search and Pagination
-  onSearch(searchTerm: string) {
-    this.searchTerm.set(searchTerm);
-    this.currentPage.set(0);
-    this.loadPatients();
-  }
-
-  onPageChange(page: number) {
-    this.currentPage.set(page);
-    this.loadPatients();
-  }
-
-  // Form helpers
-  resetPatientForm() {
-    this.patientForm = {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phoneNumber: '',
-      dateOfBirth: '',
-      address: '',
-      gender: 'MALE',
-      bloodGroup: '',
-      emergencyContact: '',
-      insuranceId: ''
-    };
-    this.selectedPatient.set(null);
-  }
-
-  resetAppointmentForm() {
-    this.appointmentForm = {
-      patientId: '',
-      doctorId: '',
+  closeBookingModal(): void {
+    this.showBookingModal = false;
+    this.selectedDoctor = null;
+    this.appointmentData = {
+      doctorId: 0,
       appointmentDate: '',
-      appointmentTime: '',
-      type: 'CONSULTATION',
+      startTime: '',
+      endTime: '',
       reason: '',
-      notes: ''
     };
   }
 
-  resetPrescriptionForm() {
-    this.prescriptionForm = {
-      patientId: '',
-      doctorId: '',
-      medicineName: '',
-      dosage: '',
-      frequency: '',
-      duration: '',
-      instructions: ''
-    };
+  bookAppointment(): void {
+    if (
+      this.appointmentData.doctorId &&
+      this.appointmentData.appointmentDate &&
+      this.appointmentData.startTime &&
+      this.appointmentData.endTime
+    ) {
+      this.appointmentService.bookAppointment(this.appointmentData).subscribe({
+        next: (appointment) => {
+          console.log('Appointment booked successfully:', appointment);
+          this.closeBookingModal();
+          this.router.navigate(['/patient/my-appointments']);
+        },
+        error: (error) => {
+          console.error('Error booking appointment:', error);
+        },
+      });
+    }
   }
 
-  // UI Helpers
-  getStatusBadgeClass(status: string): string {
-    const classes: { [key: string]: string } = {
-      'ACTIVE': 'bg-green-100 text-green-800',
-      'INACTIVE': 'bg-red-100 text-red-800',
-      'PENDING': 'bg-yellow-100 text-yellow-800',
-      'SCHEDULED': 'bg-blue-100 text-blue-800',
-      'CONFIRMED': 'bg-green-100 text-green-800',
-      'COMPLETED': 'bg-purple-100 text-purple-800',
-      'CANCELLED': 'bg-red-100 text-red-800'
-    };
-    return classes[status] || 'bg-gray-100 text-gray-800';
-  }
-
-  getGenderIcon(gender: string): string {
-    const icons: { [key: string]: string } = {
-      'MALE': '👨',
-      'FEMALE': '👩',
-      'OTHER': '🧑'
-    };
-    return icons[gender] || '🧑';
+  getDoctorInitials(doctorName: string): string {
+    return doctorName.split(' ').map(n => n[0]).join('').toUpperCase();
   }
 }
-5. Updated Template with Full Functionality
-html
-<!-- src/app/components/dashboard/dashboard.component.html -->
-<!-- Dashboard Selector -->
-<div class="bg-white p-4 shadow-md sticky top-0 z-50 text-center">
-  <div class="space-x-2">
-    <button 
-      (click)="showDashboard('doctor')" 
-      [class]="activeDashboard() === 'doctor' 
-        ? 'bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition-all hover:scale-105' 
-        : 'bg-white text-blue-600 border-2 border-blue-600 px-6 py-2 rounded-lg font-semibold transition-all hover:scale-105'">
-      👨‍⚕️ Doctor Dashboard
-    </button>
-    <button 
-      (click)="showDashboard('patient')" 
-      [class]="activeDashboard() === 'patient' 
-        ? 'bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition-all hover:scale-105' 
-        : 'bg-white text-blue-600 border-2 border-blue-600 px-6 py-2 rounded-lg font-semibold transition-all hover:scale-105'">
-      👤 Patient Dashboard
-    </button>
-    <button 
-      (click)="showDashboard('admin')" 
-      [class]="activeDashboard() === 'admin' 
-        ? 'bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold transition-all hover:scale-105' 
-        : 'bg-white text-blue-600 border-2 border-blue-600 px-6 py-2 rounded-lg font-semibold transition-all hover:scale-105'">
-      ⚙️ Admin Dashboard
-    </button>
-  </div>
-</div>
 
-@if (error()) {
-<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative m-4" role="alert">
-  <strong class="font-bold">Error: </strong>
-  <span class="block sm:inline">{{ error() }}</span>
-  <button (click)="error.set(null)" class="absolute top-0 right-0 px-4 py-3">
-    <span class="text-2xl">&times;</span>
-  </button>
-</div>
-}
 
-<!-- DOCTOR DASHBOARD -->
-@if (activeDashboard() === 'doctor') {
-<div class="min-h-screen bg-gray-50 flex">
-  <!-- Sidebar -->
-  <aside class="w-64 bg-white shadow-lg">
-    <div class="p-6 border-b border-gray-200">
-      <div class="text-2xl font-bold text-blue-600 flex items-center gap-2">⚕ MediCare</div>
-    </div>
-    <nav class="p-4">
-      <ul class="space-y-2">
-        <li><a href="#" class="flex items-center gap-3 p-3 bg-blue-50 text-blue-600 border-l-4 border-blue-600 font-medium">📊 Dashboard</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">📅 Appointments</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">👥 Patients</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">⏰ Availability</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">💊 Prescriptions</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">📋 Medical Records</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">⚙️ Settings</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">🚪 Logout</a></li>
-      </ul>
-    </nav>
-  </aside>
+<div class="flex min-h-screen">
+  <app-sidebar></app-sidebar>
 
   <!-- Main Content -->
-  <main class="flex-1 p-8 overflow-auto">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-8">
-      <h1 class="text-3xl font-bold text-gray-800">Welcome back, Dr. Smith</h1>
-      <div class="flex items-center gap-4 bg-white p-3 rounded-lg shadow-sm">
-        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">DS</div>
-        <div>
-          <div class="font-semibold">Dr. John Smith</div>
-          <div class="text-sm text-gray-500">Cardiologist</div>
-        </div>
-      </div>
-    </div>
+  <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
+    <app-header [patient]="patient"></app-header>
 
-    <!-- Quick Actions -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <button (click)="showAppointmentForm.set(true)" class="bg-white border-2 border-gray-200 p-4 rounded-lg text-center cursor-pointer transition-all hover:border-blue-500 hover:shadow-lg">
-        <div class="text-3xl mb-2">📅</div>
-        <div class="font-semibold text-gray-800">View Schedule</div>
-      </button>
-      <button (click)="showPrescriptionForm.set(true)" class="bg-white border-2 border-gray-200 p-4 rounded-lg text-center cursor-pointer transition-all hover:border-blue-500 hover:shadow-lg">
-        <div class="text-3xl mb-2">💊</div>
-        <div class="font-semibold text-gray-800">Write Prescription</div>
-      </button>
-      <button class="bg-white border-2 border-gray-200 p-4 rounded-lg text-center cursor-pointer transition-all hover:border-blue-500 hover:shadow-lg">
-        <div class="text-3xl mb-2">📋</div>
-        <div class="font-semibold text-gray-800">Medical Records</div>
-      </button>
-      <button class="bg-white border-2 border-gray-200 p-4 rounded-lg text-center cursor-pointer transition-all hover:border-blue-500 hover:shadow-lg">
-        <div class="text-3xl mb-2">⏰</div>
-        <div class="font-semibold text-gray-800">Set Availability</div>
-      </button>
-    </div>
+    <!-- Search Section -->
+    <div class="bg-white p-6 rounded-xl shadow mb-6">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6">Find Doctors</h2>
 
-    <!-- Today's Appointments -->
-    <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-semibold text-gray-800">Today's Appointments</h2>
-        <button (click)="loadAppointments()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-          Refresh
-        </button>
-      </div>
-      
-      @if (isLoading()) {
-        <div class="text-center py-8">
-          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p class="mt-2 text-gray-600">Loading appointments...</p>
+      <div class="flex gap-4 mb-6">
+        <div class="flex-1">
+          <input
+            type="text"
+            [(ngModel)]="searchTerm"
+            (input)="searchDoctors()"
+            placeholder="Search doctors..."
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
-      } @else {
-        <div class="space-y-4">
-          @for (appointment of appointments(); track appointment.id) {
-            <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
-              <div class="flex justify-between items-start mb-3">
-                <div>
-                  <div class="font-semibold text-gray-800 text-lg">{{ appointment.doctorName }}</div>
-                  <div class="text-gray-600 text-sm mt-1">🕐 {{ appointment.appointmentDate }} at {{ appointment.appointmentTime }}</div>
-                  <div class="text-gray-600 text-sm">Reason: {{ appointment.reason }}</div>
-                </div>
-                <span [class]="'px-3 py-1 rounded-full text-sm font-medium ' + getStatusBadgeClass(appointment.status)">
-                  {{ appointment.status }}
-                </span>
-              </div>
-              <div class="flex gap-2">
-                @if (appointment.status === 'PENDING') {
-                  <button (click)="updateAppointmentStatus(appointment.id, 'CONFIRMED')" 
-                          class="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors">
-                    Confirm
-                  </button>
-                  <button (click)="updateAppointmentStatus(appointment.id, 'CANCELLED')" 
-                          class="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors">
-                    Cancel
-                  </button>
-                }
-                @if (appointment.status === 'CONFIRMED') {
-                  <button (click)="updateAppointmentStatus(appointment.id, 'COMPLETED')" 
-                          class="bg-purple-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-purple-700 transition-colors">
-                    Mark Complete
-                  </button>
-                  <button (click)="updateAppointmentStatus(appointment.id, 'CANCELLED')" 
-                          class="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors">
-                    Cancel
-                  </button>
-                }
-                <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
-                  View Details
-                </button>
-              </div>
-            </div>
-          }
-          @if (appointments().length === 0) {
-            <div class="text-center py-8 text-gray-500">
-              No appointments scheduled for today.
-            </div>
-          }
-        </div>
-      }
-    </div>
-
-    <!-- Patient Management -->
-    <div class="bg-white rounded-xl shadow-sm p-6">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-semibold text-gray-800">Patient Management</h2>
-        <div class="flex gap-2">
-          <input type="text" 
-                 [value]="searchTerm()" 
-                 (input)="onSearch(($event.target as HTMLInputElement).value)"
-                 placeholder="Search patients..." 
-                 class="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <button (click)="showPatientForm.set(true); resetPatientForm()" 
-                  class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-            Add Patient
-          </button>
-        </div>
+        <select
+          [(ngModel)]="searchType"
+          (change)="searchDoctors()"
+          class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="name">By Name</option>
+          <option value="specialization">By Specialization</option>
+        </select>
       </div>
 
-      @if (isLoading()) {
-        <div class="text-center py-8">
-          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p class="mt-2 text-gray-600">Loading patients...</p>
-        </div>
-      } @else {
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Patient</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Contact</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Date of Birth</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Status</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-              @for (patient of patients(); track patient.id) {
-                <tr class="hover:bg-gray-50">
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-3">
-                      <div class="text-2xl">{{ getGenderIcon(patient.gender) }}</div>
-                      <div>
-                        <div class="font-semibold">{{ patient.firstName }} {{ patient.lastName }}</div>
-                        <div class="text-sm text-gray-500">{{ patient.bloodGroup || 'No blood group' }}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3">
-                    <div class="text-sm">{{ patient.email }}</div>
-                    <div class="text-sm text-gray-500">{{ patient.phoneNumber }}</div>
-                  </td>
-                  <td class="px-4 py-3">{{ patient.dateOfBirth }}</td>
-                  <td class="px-4 py-3">
-                    <span [class]="'px-3 py-1 rounded-full text-sm font-medium ' + getStatusBadgeClass(patient.status)">
-                      {{ patient.status }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3">
-                    <div class="flex gap-2">
-                      <button (click)="editPatient(patient)" 
-                              class="bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-blue-700 transition-colors">
-                        Edit
-                      </button>
-                      <button (click)="deletePatient(patient.id)" 
-                              class="bg-red-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-red-700 transition-colors">
-                        Delete
-                      </button>
-                      <button class="bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm font-medium hover:bg-gray-300 transition-colors">
-                        Records
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-              @if (patients().length === 0) {
-                <tr>
-                  <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                    No patients found.
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        @if (totalElements() > pageSize()) {
-          <div class="flex justify-between items-center mt-6">
-            <div class="text-sm text-gray-500">
-              Showing {{ patients().length }} of {{ totalElements() }} patients
+      <!-- Doctors Grid -->
+      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        @for (doctor of filteredDoctors; track doctor.doctorId) {
+        <div
+          class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition"
+        >
+          <div class="flex items-center gap-4 mb-4">
+            <div
+              class="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg"
+            >
+              {{ getDoctorInitials(doctor.doctorName) }}
             </div>
-            <div class="flex gap-2">
-              <button (click)="onPageChange(currentPage() - 1)" 
-                      [disabled]="currentPage() === 0"
-                      class="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed">
-                Previous
-              </button>
-              <span class="px-3 py-1 bg-blue-600 text-white rounded">
-                {{ currentPage() + 1 }}
-              </span>
-              <button (click)="onPageChange(currentPage() + 1)" 
-                      [disabled]="(currentPage() + 1) * pageSize() >= totalElements()"
-                      class="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed">
-                Next
-              </button>
+            <div>
+              <h3 class="font-semibold text-gray-800 text-lg">{{ doctor.doctorName }}</h3>
+              <p class="text-blue-600 font-medium">{{ doctor.specialization }}</p>
             </div>
           </div>
-        }
-      }
-    </div>
-  </main>
-</div>
-}
 
-<!-- PATIENT DASHBOARD -->
-@if (activeDashboard() === 'patient') {
-<div class="min-h-screen bg-gray-50 flex">
-  <!-- Sidebar -->
-  <aside class="w-64 bg-white shadow-lg">
-    <div class="p-6 border-b border-gray-200">
-      <div class="text-2xl font-bold text-blue-600 flex items-center gap-2">⚕ MediCare</div>
-    </div>
-    <nav class="p-4">
-      <ul class="space-y-2">
-        <li><a href="#" class="flex items-center gap-3 p-3 bg-blue-50 text-blue-600 border-l-4 border-blue-600 font-medium">📊 Dashboard</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">📅 My Appointments</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">🔍 Find Doctors</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">📋 Medical Records</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">💊 Prescriptions</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">🔔 Notifications</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">⚙️ Settings</a></li>
-        <li><a href="#" class="flex items-center gap-3 p-3 text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors">🚪 Logout</a></li>
-      </ul>
-    </nav>
-  </aside>
-
-  <!-- Main Content -->
-  <main class="flex-1 p-8 overflow-auto">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-8">
-      <h1 class="text-3xl font-bold text-gray-800">Hello, Emily</h1>
-      <div class="flex items-center gap-4 bg-white p-3 rounded-lg shadow-sm">
-        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold">EJ</div>
-        <div>
-          <div class="font-semibold">Emily Johnson</div>
-          <div class="text-sm text-gray-500">Patient ID: P12345</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Quick Actions -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-      <button (click)="showAppointmentForm.set(true)" class="bg-white border-2 border-gray-200 p-4 rounded-lg text-center cursor-pointer transition-all hover:border-blue-500 hover:shadow-lg">
-        <div class="text-3xl mb-2">📅</div>
-        <div class="font-semibold text-gray-800">Book Appointment</div>
-      </button>
-      <button class="bg-white border-2 border-gray-200 p-4 rounded-lg text-center cursor-pointer transition-all hover:border-blue-500 hover:shadow-lg">
-        <div class="text-3xl mb-2">🔍</div>
-        <div class="font-semibold text-gray-800">Find Doctors</div>
-      </button>
-      <button class="bg-white border-2 border-gray-200 p-4 rounded-lg text-center cursor-pointer transition-all hover:border-blue-500 hover:shadow-lg">
-        <div class="text-3xl mb-2">📄</div>
-        <div class="font-semibold text-gray-800">Upload Records</div>
-      </button>
-      <button class="bg-white border-2 border-gray-200 p-4 rounded-lg text-center cursor-pointer transition-all hover:border-blue-500 hover:shadow-lg">
-        <div class="text-3xl mb-2">💊</div>
-        <div class="font-semibold text-gray-800">Order Medicine</div>
-      </button>
-    </div>
-
-    <!-- Upcoming Appointments -->
-    <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-semibold text-gray-800">My Appointments</h2>
-        <button (click)="showAppointmentForm.set(true)" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-          Book New
-        </button>
-      </div>
-      
-      @if (isLoading()) {
-        <div class="text-center py-8">
-          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p class="mt-2 text-gray-600">Loading appointments...</p>
-        </div>
-      } @else {
-        <div class="space-y-4">
-          @for (appointment of appointments(); track appointment.id) {
-            <div class="bg-gray-50 p-4 rounded-lg border-l-4 border-blue-500">
-              <div class="flex justify-between items-start mb-3">
-                <div>
-                  <div class="font-semibold text-gray-800 text-lg">{{ appointment.doctorName }}</div>
-                  <div class="text-gray-600 text-sm mt-1">🕐 {{ appointment.appointmentDate }} at {{ appointment.appointmentTime }}</div>
-                  <div class="text-gray-600 text-sm">Type: {{ appointment.type }}</div>
-                </div>
-                <span [class]="'px-3 py-1 rounded-full text-sm font-medium ' + getStatusBadgeClass(appointment.status)">
-                  {{ appointment.status }}
-                </span>
-              </div>
-              <div class="flex gap-2">
-                <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
-                  View Details
-                </button>
-                @if (appointment.status === 'SCHEDULED' || appointment.status === 'CONFIRMED') {
-                  <button (click)="cancelAppointment(appointment.id)" 
-                          class="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors">
-                    Cancel
-                  </button>
-                }
-              </div>
+          <div class="space-y-2 mb-4">
+            <div class="flex items-center gap-2 text-gray-600">
+              <span>📞</span>
+              <span>{{ doctor.contactNumber }}</span>
             </div>
-          }
-          @if (appointments().length === 0) {
-            <div class="text-center py-8 text-gray-500">
-              No upcoming appointments.
+            <div class="flex items-center gap-2 text-gray-600">
+              <span>✉️</span>
+              <span class="text-sm">{{ doctor.email }}</span>
             </div>
-          }
-        </div>
-      }
-    </div>
-
-    <!-- My Prescriptions -->
-    <div class="bg-white rounded-xl shadow-sm p-6">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-semibold text-gray-800">My Prescriptions</h2>
-        <button (click)="loadPrescriptions()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
-          Refresh
-        </button>
-      </div>
-
-      @if (isLoading()) {
-        <div class="text-center py-8">
-          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p class="mt-2 text-gray-600">Loading prescriptions...</p>
-        </div>
-      } @else {
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Medicine</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Prescribed By</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Date</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Dosage</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Status</th>
-                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500">Action</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-              @for (prescription of prescriptions(); track prescription.id) {
-                <tr class="hover:bg-gray-50">
-                  <td class="px-4 py-3 font-semibold">{{ prescription.medicineName }}</td>
-                  <td class="px-4 py-3">{{ prescription.doctorName }}</td>
-                  <td class="px-4 py-3">{{ prescription.prescribedDate }}</td>
-                  <td class="px-4 py-3">{{ prescription.dosage }} - {{ prescription.frequency }}</td>
-                  <td class="px-4 py-3">
-                    <span [class]="'px-3 py-1 rounded-full text-sm font-medium ' + getStatusBadgeClass(prescription.status)">
-                      {{ prescription.status }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3">
-                    <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
-                      Download
-                    </button>
-                  </td>
-                </tr>
-              }
-              @if (prescriptions().length === 0) {
-                <tr>
-                  <td colspan="6" class="px-4 py-8 text-center text-gray-500">
-                    No prescriptions found.
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    </div>
-  </main>
-</div>
-}
-
-<!-- MODALS -->
-
-<!-- Patient Form Modal -->
-@if (showPatientForm()) {
-<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-  <div class="bg-white rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-    <div class="p-6 border-b border-gray-200">
-      <h3 class="text-xl font-semibold text-gray-800">
-        {{ selectedPatient() ? 'Edit Patient' : 'Add New Patient' }}
-      </h3>
-    </div>
-    <div class="p-6">
-      <form (ngSubmit)="selectedPatient() ? updatePatient(selectedPatient()!) : createPatient()" class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-            <input type="text" [(ngModel)]="patientForm.firstName" name="firstName" required
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <div class="flex items-center gap-2 text-gray-600">
+              <span>💰</span>
+              <span>${{ doctor.consultationFee }} consultation fee</span>
+            </div>
+            <div class="flex items-center gap-2 text-gray-600">
+              <span>⭐</span>
+              <span>{{ doctor.yearsOfExperience }} years experience</span>
+            </div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-            <input type="text" [(ngModel)]="patientForm.lastName" name="lastName" required
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" [(ngModel)]="patientForm.email" name="email" required
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-            <input type="tel" [(ngModel)]="patientForm.phoneNumber" name="phoneNumber" required
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-            <input type="date" [(ngModel)]="patientForm.dateOfBirth" name="dateOfBirth" required
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-            <select [(ngModel)]="patientForm.gender" name="gender" required
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="MALE">Male</option>
-              <option value="FEMALE">Female</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-          <textarea [(ngModel)]="patientForm.address" name="address" required rows="3"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Blood Group</label>
-            <input type="text" [(ngModel)]="patientForm.bloodGroup" name="bloodGroup"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
-            <input type="text" [(ngModel)]="patientForm.emergencyContact" name="emergencyContact"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Insurance ID</label>
-          <input type="text" [(ngModel)]="patientForm.insuranceId" name="insuranceId"
-                 class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-
-        <div class="flex justify-end gap-3 pt-4">
-          <button type="button" (click)="showPatientForm.set(false)" 
-                  class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
-            Cancel
-          </button>
-          <button type="submit" 
-                  class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-            {{ selectedPatient() ? 'Update' : 'Create' }} Patient
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-}
-
-<!-- Appointment Form Modal -->
-@if (showAppointmentForm()) {
-<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-  <div class="bg-white rounded-xl shadow-lg max-w-md w-full">
-    <div class="p-6 border-b border-gray-200">
-      <h3 class="text-xl font-semibold text-gray-800">Book Appointment</h3>
-    </div>
-    <div class="p-6">
-      <form (ngSubmit)="bookAppointment()" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
-          <select [(ngModel)]="appointmentForm.doctorId" name="doctorId" required
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">Select Doctor</option>
-            @for (doctor of doctors(); track doctor.id) {
-              <option [value]="doctor.id">{{ doctor.firstName }} {{ doctor.lastName }} - {{ doctor.specialization }}</option>
-            }
-          </select>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-            <input type="date" [(ngModel)]="appointmentForm.appointmentDate" name="appointmentDate" required
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
-            <input type="time" [(ngModel)]="appointmentForm.appointmentTime" name="appointmentTime" required
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Appointment Type</label>
-          <select [(ngModel)]="appointmentForm.type" name="type" required
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="CONSULTATION">Consultation</option>
-            <option value="FOLLOW_UP">Follow-up</option>
-            <option value="CHECKUP">Regular Checkup</option>
-            <option value="EMERGENCY">Emergency</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-          <textarea [(ngModel)]="appointmentForm.reason" name="reason" required rows="3"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
-          <textarea [(ngModel)]="appointmentForm.notes" name="notes" rows="2"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-        </div>
-
-        <div class="flex justify-end gap-3 pt-4">
-          <button type="button" (click)="showAppointmentForm.set(false)" 
-                  class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors">
-            Cancel
-          </button>
-          <button type="submit" 
-                  class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+          <button
+            (click)="openBookingModal(doctor)"
+            class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-500 transition font-medium"
+          >
             Book Appointment
           </button>
         </div>
-      </form>
+        } @if (filteredDoctors.length === 0) {
+        <div class="col-span-3 text-center py-12 text-gray-500">
+          No doctors found matching your search criteria.
+        </div>
+        }
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Booking Modal -->
+@if (showBookingModal && selectedDoctor) {
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-xl w-full max-w-md">
+    <div class="p-6 border-b border-gray-200">
+      <h3 class="text-xl font-semibold text-gray-800">Book Appointment</h3>
+      <p class="text-gray-600">with Dr. {{ selectedDoctor.doctorName }}</p>
+    </div>
+
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Appointment Date</label>
+        <input
+          type="date"
+          [(ngModel)]="appointmentData.appointmentDate"
+          class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+          <input
+            type="time"
+            [(ngModel)]="appointmentData.startTime"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+          <input
+            type="time"
+            [(ngModel)]="appointmentData.endTime"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Reason (Optional)</label>
+        <textarea
+          [(ngModel)]="appointmentData.reason"
+          rows="3"
+          class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Brief reason for the appointment..."
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="p-6 border-t border-gray-200 flex gap-3">
+      <button
+        (click)="closeBookingModal()"
+        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
+      >
+        Cancel
+      </button>
+      <button
+        (click)="bookAppointment()"
+        class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-500 transition font-medium"
+      >
+        Book Appointment
+      </button>
     </div>
   </div>
 </div>
 }
-6. Environment Configuration
-typescript
-// src/environments/environment.ts
-export const environment = {
-  production: false,
-  apiUrl: 'http://localhost:8080/api'
-};
-7. Backend API Endpoints Expected
-Your Spring Boot backend should have these endpoints:
 
-Patient Endpoints:
-GET /api/patients - Get paginated patients
 
-POST /api/patients - Create patient
+<div class="flex min-h-screen">
+  <app-sidebar></app-sidebar>
 
-PUT /api/patients/{id} - Update patient
+  <!-- Main Content -->
+  <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
+    <app-header [patient]="patient"></app-header>
 
-DELETE /api/patients/{id} - Delete patient
+    <div class="bg-white p-6 rounded-xl shadow">
+      <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+        <h2 class="text-2xl font-bold text-gray-800">Medical Records</h2>
+        <div class="text-sm text-gray-500">{{ medicalRecords.length }} record(s) found</div>
+      </div>
 
-GET /api/patients/{id}/appointments - Get patient appointments
+      <!-- Medical Records List -->
+      <div class="space-y-6">
+        @for (record of medicalRecords; track record.recordId) {
+        <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
+          <div class="flex justify-between items-start mb-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-4 mb-3">
+                <div
+                  class="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold"
+                >
+                  🏥
+                </div>
+                <div>
+                  <h3 class="font-semibold text-gray-800 text-lg">
+                    Consultation with Dr. {{ record.doctorName }}
+                  </h3>
+                  <p class="text-gray-500 text-sm">
+                    {{ record.createdAt | date : 'fullDate' }}
+                  </p>
+                </div>
+              </div>
 
-GET /api/patients/{id}/prescriptions - Get patient prescriptions
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                @if (record.reason) {
+                <div>
+                  <h4 class="font-medium text-gray-700 mb-1">Reason for Visit</h4>
+                  <p class="text-gray-600">{{ record.reason }}</p>
+                </div>
+                } @if (record.diagnosis) {
+                <div>
+                  <h4 class="font-medium text-gray-700 mb-1">Diagnosis</h4>
+                  <p class="text-gray-600">{{ record.diagnosis }}</p>
+                </div>
+                }
+              </div>
 
-GET /api/patients/{id}/medical-records - Get medical records
+              @if (record.notes) {
+              <div class="mb-4">
+                <h4 class="font-medium text-gray-700 mb-1">Doctor's Notes</h4>
+                <p class="text-gray-600">{{ record.notes }}</p>
+              </div>
+              } @if (hasPrescriptions(record)) {
+              <div class="border-t border-gray-200 pt-4">
+                <h4 class="font-medium text-gray-700 mb-3">Prescriptions</h4>
+                <div class="space-y-2">
+                  @for (prescription of record.prescriptions; track prescription.prescriptionId) {
+                  <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
+                    <div>
+                      <p class="font-semibold text-gray-800">{{ prescription.medicationName }}</p>
+                      <p class="text-sm text-gray-600">
+                        {{ prescription.dosage }} • {{ prescription.instructions }}
+                      </p>
+                    </div>
+                    <span class="text-xs text-gray-500">
+                      {{ prescription.prescribedAt | date : 'shortDate' }}
+                    </span>
+                  </div>
+                  }
+                </div>
+              </div>
+              }
+            </div>
+          </div>
 
-Appointment Endpoints:
-POST /api/patients/appointments - Book appointment
+          <div class="flex gap-2 pt-4 border-t border-gray-200">
+            <button
+              (click)="viewRecordDetails(record)"
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition text-sm"
+            >
+              View Details
+            </button>
 
-PUT /api/patients/appointments/{id} - Update appointment
+            @if (hasPrescriptions(record)) {
+            <button
+              (click)="downloadPrescription(record)"
+              class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition text-sm"
+            >
+              Download Prescription
+            </button>
+            }
+          </div>
+        </div>
+        } @if (medicalRecords.length === 0) {
+        <div class="text-center py-12 text-gray-500">
+          <div class="text-6xl mb-4">📋</div>
+          <h3 class="text-xl font-semibold mb-2">No medical records found</h3>
+          <p>Your medical records will appear here after your appointments.</p>
+        </div>
+        }
+      </div>
+    </div>
+  </main>
+</div>
 
-PATCH /api/patients/appointments/{id}/cancel - Cancel appointment
+<!-- Medical Record Details Modal -->
+@if (showRecordModal && selectedRecord) {
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+    <div class="p-6 border-b border-gray-200">
+      <div class="flex justify-between items-center">
+        <h3 class="text-xl font-semibold text-gray-800">Medical Record Details</h3>
+        <button (click)="closeRecordModal()" class="text-gray-500 hover:text-gray-700 text-2xl">
+          ×
+        </button>
+      </div>
+      <p class="text-gray-600 mt-1">
+        Consultation with Dr. {{ selectedRecord.doctorName }} on
+        {{ selectedRecord.createdAt | date : 'fullDate' }}
+      </p>
+    </div>
 
-Doctor Endpoints:
-GET /api/doctors - Get doctors
+    <div class="p-6 space-y-6">
+      <!-- Basic Information -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h4 class="font-semibold text-gray-700 mb-2">Patient Information</h4>
+          <div class="space-y-1 text-sm">
+            <p><span class="font-medium">Name:</span> {{ selectedRecord.patientName }}</p>
+            <p><span class="font-medium">Doctor:</span> Dr. {{ selectedRecord.doctorName }}</p>
+            <p>
+              <span class="font-medium">Date:</span>
+              {{ selectedRecord.createdAt | date : 'fullDate' }}
+            </p>
+          </div>
+        </div>
 
-GET /api/doctors/{id}/appointments - Get doctor appointments
+        <div>
+          <h4 class="font-semibold text-gray-700 mb-2">Visit Information</h4>
+          <div class="space-y-1 text-sm">
+            @if (selectedRecord.reason) {
+            <p><span class="font-medium">Reason:</span> {{ selectedRecord.reason }}</p>
+            } @if (selectedRecord.diagnosis) {
+            <p><span class="font-medium">Diagnosis:</span> {{ selectedRecord.diagnosis }}</p>
+            }
+          </div>
+        </div>
+      </div>
 
-PATCH /api/doctors/appointments/{id}/status - Update appointment status
+      <!-- Doctor's Notes -->
+      @if (selectedRecord.notes) {
+      <div>
+        <h4 class="font-semibold text-gray-700 mb-2">Doctor's Notes</h4>
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <p class="text-gray-700">{{ selectedRecord.notes }}</p>
+        </div>
+      </div>
+      }
 
-Key Features:
-Full CRUD Operations: Create, read, update, delete patients
+      <!-- Prescriptions -->
+      @if (hasPrescriptions(selectedRecord)) {
+      <div>
+        <h4 class="font-semibold text-gray-700 mb-3">Prescriptions</h4>
+        <div class="space-y-3">
+          @for (prescription of selectedRecord.prescriptions; track prescription.prescriptionId) {
+          <div class="border border-gray-200 rounded-lg p-4">
+            <div class="flex justify-between items-start mb-2">
+              <h5 class="font-semibold text-lg text-gray-800">{{ prescription.medicationName }}</h5>
+              <span class="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                {{ prescription.prescribedAt | date : 'shortDate' }}
+              </span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span class="font-medium text-gray-700">Dosage:</span>
+                <span class="text-gray-600 ml-2">{{ prescription.dosage }}</span>
+              </div>
+              <div>
+                <span class="font-medium text-gray-700">Instructions:</span>
+                <span class="text-gray-600 ml-2">{{
+                  prescription.instructions || 'As directed'
+                }}</span>
+              </div>
+            </div>
+          </div>
+          }
+        </div>
+      </div>
+      }
+    </div>
 
-Appointment Management: Book, cancel, update appointments
+    <div class="p-6 border-t border-gray-200 flex gap-3">
+      <button
+        (click)="closeRecordModal()"
+        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
+      >
+        Close
+      </button>
+      @if (hasPrescriptions(selectedRecord)) {
+      <button
+        (click)="downloadPrescription(selectedRecord)"
+        class="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-500 transition font-medium"
+      >
+        Download All Prescriptions
+      </button>
+      }
+    </div>
+  </div>
+</div>
+}
 
-Prescription Management: View and create prescriptions
 
-Real-time Data: All data is fetched from backend
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Sidebar } from '../../../shared/sidebar/sidebar';
+import { Header } from '../../../shared/patient/header/header';
+import { MedicalRecordResponseDTO } from '../../../models/medicalrecord-interface';
+import { Patient } from '../../../models/patient-interface';
+import { MedicalRecordService } from '../../../core/services/medical-record.service';
+import { PatientService } from '../../../core/services/patient.service';
 
-Search & Pagination: Patient search with pagination
+@Component({
+  selector: 'app-medical-records',
+  standalone: true,
+  imports: [CommonModule, Sidebar, Header],
+  templateUrl: './medical-records.html',
+  styleUrls: ['./medical-records.css'],
+})
+export class MedicalRecords implements OnInit {
+  medicalRecords: MedicalRecordResponseDTO[] = [];
+  patient: Patient | null = null;
+  selectedRecord: MedicalRecordResponseDTO | null = null;
+  showRecordModal: boolean = false;
 
-Form Validation: Proper form handling with validation
+  constructor(
+    private medicalRecordService: MedicalRecordService,
+    private patientService: PatientService
+  ) {}
 
-Error Handling: Comprehensive error handling
+  ngOnInit(): void {
+    this.loadPatientData();
+    this.loadMedicalRecords();
+  }
 
-Loading States: Loading indicators for better UX
+  loadPatientData(): void {
+    this.patientService.getPatient().subscribe({
+      next: (patient) => {
+        this.patient = patient;
+      },
+      error: (error) => {
+        console.error('Error loading patient data:', error);
+      },
+    });
+  }
 
-Responsive Design: Mobile-friendly interface
+  loadMedicalRecords(): void {
+    this.medicalRecordService.getRecordsForPatient().subscribe({
+      next: (records) => {
+        this.medicalRecords = records;
+      },
+      error: (error) => {
+        console.error('Error loading medical records:', error);
+      },
+    });
+  }
 
-All buttons now have real functionality connected to your Spring Boot backend instead of showing alerts!
+  viewRecordDetails(record: MedicalRecordResponseDTO): void {
+    this.selectedRecord = record;
+    this.showRecordModal = true;
+  }
+
+  closeRecordModal(): void {
+    this.showRecordModal = false;
+    this.selectedRecord = null;
+  }
+
+  downloadPrescription(record: MedicalRecordResponseDTO): void {
+    // Implement prescription download logic
+    console.log('Downloading prescription for record:', record.recordId);
+    // This would typically generate a PDF or download a file
+  }
+
+  hasPrescriptions(record: MedicalRecordResponseDTO): boolean {
+    return record.prescriptions && record.prescriptions.length > 0;
+  }
+}
+
+
+<div class="flex min-h-screen">
+  <app-sidebar></app-sidebar>
+
+  <!-- Main Content -->
+  <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
+    <app-header [patient]="patient"></app-header>
+
+    <div class="bg-white p-6 rounded-xl shadow">
+      <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+        <h2 class="text-2xl font-bold text-gray-800">My Appointments</h2>
+
+        <div class="flex items-center gap-4">
+          <select
+            [(ngModel)]="filterStatus"
+            (change)="onFilterChange()"
+            class="p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Appointments</option>
+            <option value="PENDING">Pending</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELED">Canceled</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Appointments List -->
+      <div class="space-y-4">
+        @for (appointment of filteredAppointments; track appointment.appointmentId) {
+        <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
+          <div class="flex justify-between items-start mb-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-4 mb-3">
+                <div
+                  class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold"
+                >
+                  {{ getDoctorInitials(appointment.doctor.doctorName) }}
+                </div>
+                <div>
+                  <h3 class="font-semibold text-gray-800 text-lg">
+                    Dr. {{ appointment.doctor.doctorName }}
+                  </h3>
+                  <p class="text-blue-600">{{ appointment.doctor.specialization }}</p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                <div class="flex items-center gap-2">
+                  <span>📅</span>
+                  <span>{{ appointment.appointmentDate | date : 'fullDate' }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span>🕐</span>
+                  <span>{{ appointment.startTime }} - {{ appointment.endTime }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span>💰</span>
+                  <span>${{ appointment.doctor.consultationFee }}</span>
+                </div>
+              </div>
+
+              @if (appointment.reason) {
+              <div class="mt-3">
+                <p class="text-sm text-gray-600">
+                  <span class="font-medium">Reason:</span> {{ appointment.reason }}
+                </p>
+              </div>
+              }
+            </div>
+
+            <div class="text-right">
+              <span
+                [class]="
+                  getStatusBadgeClass(appointment.status) +
+                  ' px-3 py-1 rounded-full text-sm font-semibold'
+                "
+              >
+                {{ appointment.status }}
+              </span>
+            </div>
+          </div>
+
+          <div class="flex gap-2 pt-4 border-t border-gray-200">
+            <button
+              class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition text-sm"
+            >
+              View Details
+            </button>
+
+            @if (canCancelAppointment(appointment.status)) {
+            <button
+              (click)="openCancelModal(appointment)"
+              class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition text-sm"
+            >
+              Cancel
+            </button>
+            } @if (appointment.status === 'PENDING') {
+            <button
+              class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition text-sm"
+            >
+              Reschedule
+            </button>
+            }
+          </div>
+        </div>
+        } @if (filteredAppointments.length === 0) {
+        <div class="text-center py-12 text-gray-500">
+          <div class="text-6xl mb-4">📅</div>
+          <h3 class="text-xl font-semibold mb-2">No appointments found</h3>
+          <p>You don't have any appointments matching the current filter.</p>
+        </div>
+        }
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Cancel Appointment Modal -->
+@if (showCancelModal && appointmentToCancel) {
+<div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-xl w-full max-w-md">
+    <div class="p-6 border-b border-gray-200">
+      <h3 class="text-xl font-semibold text-gray-800">Cancel Appointment</h3>
+      <p class="text-gray-600 mt-1">Are you sure you want to cancel this appointment?</p>
+    </div>
+
+    <div class="p-6">
+      <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div class="flex items-center gap-3">
+          <div class="text-red-600 text-lg">⚠️</div>
+          <div>
+            <p class="font-semibold text-red-800">Cancellation Notice</p>
+            <p class="text-red-700 text-sm mt-1">
+              This action cannot be undone. The doctor will be notified of the cancellation.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-6 border-t border-gray-200 flex gap-3">
+      <button
+        (click)="closeCancelModal()"
+        class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-medium"
+      >
+        Keep Appointment
+      </button>
+      <button
+        (click)="cancelAppointment()"
+        class="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-500 transition font-medium"
+      >
+        Cancel Appointment
+      </button>
+    </div>
+  </div>
+</div>
+}
+
+
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Sidebar } from '../../../shared/sidebar/sidebar';
+import { Header } from '../../../shared/patient/header/header';
+import { AppointmentResponseDTO } from '../../../models/appointment-interface';
+import { Patient } from '../../../models/patient-interface';
+import { AppointmentService } from '../../../core/services/patient-appointment.service';
+import { PatientService } from '../../../core/services/patient.service';
+
+@Component({
+  selector: 'app-my-appointments',
+  standalone: true,
+  imports: [CommonModule, FormsModule, Sidebar, Header],
+  templateUrl: './my-appointments.html',
+  styleUrls: ['./my-appointments.css'],
+})
+export class MyAppointments implements OnInit {
+  appointments: AppointmentResponseDTO[] = [];
+  filteredAppointments: AppointmentResponseDTO[] = [];
+  patient: Patient | null = null;
+  filterStatus: string = 'all';
+  showCancelModal: boolean = false;
+  appointmentToCancel: AppointmentResponseDTO | null = null;
+
+  constructor(
+    private appointmentService: AppointmentService,
+    private patientService: PatientService
+  ) {}
+
+  ngOnInit(): void {
+    this.loadPatientData();
+    this.loadAppointments();
+  }
+
+  loadPatientData(): void {
+    this.patientService.getPatient().subscribe({
+      next: (patient) => {
+        this.patient = patient;
+      },
+      error: (error) => {
+        console.error('Error loading patient data:', error);
+      },
+    });
+  }
+
+  loadAppointments(): void {
+    this.appointmentService.getAppointmentsForPatient().subscribe({
+      next: (appointments) => {
+        this.appointments = appointments;
+        this.filterAppointments();
+      },
+      error: (error) => {
+        console.error('Error loading appointments:', error);
+      },
+    });
+  }
+
+  filterAppointments(): void {
+    if (this.filterStatus === 'all') {
+      this.filteredAppointments = this.appointments;
+    } else {
+      this.filteredAppointments = this.appointments.filter(
+        (apt) => apt.status === this.filterStatus
+      );
+    }
+  }
+
+  onFilterChange(): void {
+    this.filterAppointments();
+  }
+
+  openCancelModal(appointment: AppointmentResponseDTO): void {
+    this.appointmentToCancel = appointment;
+    this.showCancelModal = true;
+  }
+
+  closeCancelModal(): void {
+    this.showCancelModal = false;
+    this.appointmentToCancel = null;
+  }
+
+  cancelAppointment(): void {
+    if (this.appointmentToCancel) {
+      this.appointmentService.cancelAppointment(this.appointmentToCancel.appointmentId).subscribe({
+        next: () => {
+          this.loadAppointments();
+          this.closeCancelModal();
+        },
+        error: (error) => {
+          console.error('Error canceling appointment:', error);
+        },
+      });
+    }
+  }
+
+  getStatusBadgeClass(status: string): string {
+    switch (status) {
+      case 'CONFIRMED':
+        return 'bg-green-100 text-green-800';
+      case 'PENDING':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'CANCELED':
+        return 'bg-red-100 text-red-800';
+      case 'COMPLETED':
+        return 'bg-blue-100 text-blue-800';
+      case 'REJECTED':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+
+  canCancelAppointment(status: string): boolean {
+    return status === 'PENDING' || status === 'CONFIRMED';
+  }
+
+  getDoctorInitials(doctorName: string): string {
+    return doctorName.split(' ').map(n => n[0]).join('').toUpperCase();
+  }
+}
+
+
+
+<div class="flex min-h-screen">
+  <app-sidebar></app-sidebar>
+
+  <!-- Main Content -->
+  <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
+    <app-header [patient]="patient" [notificationCount]="stats.notifications"></app-header>
+
+    <!-- Stats Cards -->
+    <div class="grid gap-6 mb-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        class="bg-white p-6 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition"
+      >
+        <div>
+          <h3 class="text-sm text-gray-500 font-medium mb-1">Upcoming Appointments</h3>
+          <p class="text-2xl font-bold text-gray-800">{{ stats.upcomingAppointments }}</p>
+        </div>
+        <div class="text-3xl">📅</div>
+      </div>
+      <div
+        class="bg-white p-6 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition"
+      >
+        <div>
+          <h3 class="text-sm text-gray-500 font-medium mb-1">Active Prescriptions</h3>
+          <p class="text-2xl font-bold text-gray-800">{{ stats.activePrescriptions }}</p>
+        </div>
+        <div class="text-3xl">💊</div>
+      </div>
+      <div
+        class="bg-white p-6 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition"
+      >
+        <div>
+          <h3 class="text-sm text-gray-500 font-medium mb-1">Medical Records</h3>
+          <p class="text-2xl font-bold text-gray-800">{{ stats.medicalRecords }}</p>
+        </div>
+        <div class="text-3xl">📋</div>
+      </div>
+      <div
+        class="bg-white p-6 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition"
+      >
+        <div>
+          <h3 class="text-sm text-gray-500 font-medium mb-1">Notifications</h3>
+          <p class="text-2xl font-bold text-gray-800">{{ stats.notifications }}</p>
+        </div>
+        <div class="text-3xl">🔔</div>
+      </div>
+    </div>
+
+    <!-- Upcoming Appointments -->
+    <div class="bg-white p-6 rounded-xl shadow mb-6">
+      <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-2">
+        <h2 class="text-lg font-semibold text-gray-800">Upcoming Appointments</h2>
+        <button
+          (click)="navigateToFindDoctors()"
+          class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 transition"
+        >
+          Book New
+        </button>
+      </div>
+
+      @for (appointment of upcomingAppointments; track appointment.appointmentId) {
+      <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded mb-4">
+        <div class="flex justify-between items-start mb-2">
+          <div>
+            <div class="font-semibold text-gray-800 text-lg">
+              Dr. {{ appointment.doctor.doctorName }} - {{ appointment.doctor.specialization }}
+            </div>
+            <div class="text-gray-500 text-sm mt-1">
+              🕐 {{ appointment.appointmentDate | date : 'mediumDate' }},
+              {{ appointment.startTime }}
+            </div>
+          </div>
+          <span
+            [class]="
+              getStatusBadgeClass(appointment.status) +
+              ' px-3 py-1 rounded-full text-sm font-semibold'
+            "
+          >
+            {{ appointment.status }}
+          </span>
+        </div>
+        <div class="flex gap-2 mt-4">
+          <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">
+            View Details
+          </button>
+          @if (appointment.status === 'PENDING' || appointment.status === 'CONFIRMED') {
+          <button class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition">
+            Cancel
+          </button>
+          }
+        </div>
+      </div>
+      } @if (upcomingAppointments.length === 0) {
+      <div class="text-center py-8 text-gray-500">No upcoming appointments</div>
+      }
+    </div>
+
+    <!-- Recent Prescriptions -->
+    <div class="bg-white p-6 rounded-xl shadow">
+      <div class="flex justify-between items-center mb-4 border-b border-gray-200 pb-2">
+        <h2 class="text-lg font-semibold text-gray-800">Recent Prescriptions</h2>
+        <a href="#" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition"
+          >View All</a
+        >
+      </div>
+
+      @if (medicalRecords.length > 0) {
+      <table class="w-full border-collapse">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Medicine</th>
+            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Prescribed By</th>
+            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Date</th>
+            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Status</th>
+            <th class="p-4 text-left text-gray-700 font-semibold text-sm">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (record of medicalRecords.slice(0, 2); track record.recordId) { @for (prescription of
+          record.prescriptions; track prescription.prescriptionId) {
+          <tr class="hover:bg-gray-100">
+            <td class="p-4 font-semibold">{{ prescription.medicationName }}</td>
+            <td class="p-4">Dr. {{ record.doctorName }}</td>
+            <td class="p-4">{{ prescription.prescribedAt | date : 'mediumDate' }}</td>
+            <td class="p-4">
+              <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold"
+                >Active</span
+              >
+            </td>
+            <td class="p-4">
+              <button
+                class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition"
+              >
+                Download
+              </button>
+            </td>
+          </tr>
+          } }
+        </tbody>
+      </table>
+      } @else {
+      <div class="text-center py-8 text-gray-500">No prescriptions available</div>
+      }
+    </div>
+  </main>
+</div>
+
+
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { AppointmentResponseDTO } from '../../../models/appointment-interface';
+import { Patient } from '../../../models/patient-interface';
+import { Header } from '../../../shared/patient/header/header';
+import { MedicalRecordResponseDTO } from '../../../models/medicalrecord-interface';
+import { NotificationResponseDTO } from '../../../models/notification-interface';
+import { PatientService } from '../../../core/services/patient.service';
+import { AppointmentService } from '../../../core/services/patient-appointment.service';
+import { MedicalRecordService } from '../../../core/services/medical-record.service';
+import { NotificationService } from '../../../core/services/notification.service';
+import { Sidebar } from '../../../shared/sidebar/sidebar';
+
+@Component({
+  selector: 'app-patient-dashboard',
+  standalone: true,
+  imports: [CommonModule, Sidebar, Header],
+  templateUrl: './patient-dashboard.html',
+  styleUrls: ['./patient-dashboard.css'],
+})
+export class PatientDashboard implements OnInit {
+  patient: Patient | null = null;
+  upcomingAppointments: AppointmentResponseDTO[] = [];
+  medicalRecords: MedicalRecordResponseDTO[] = [];
+  notifications: NotificationResponseDTO[] = [];
+  stats = {
+    upcomingAppointments: 0,
+    activePrescriptions: 0,
+    medicalRecords: 0,
+    notifications: 0,
+  };
+
+  constructor(
+    private patientService: PatientService,
+    private appointmentService: AppointmentService,
+    private medicalRecordService: MedicalRecordService,
+    private notificationService: NotificationService,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.loadPatientData();
+    this.loadAppointments();
+    this.loadMedicalRecords();
+    this.loadNotifications();
+  }
+
+  loadPatientData(): void {
+    this.patientService.getPatient().subscribe({
+      next: (patient) => {
+        this.patient = patient;
+      },
+      error: (error) => {
+        console.error('Error loading patient data:', error);
+      },
+    });
+  }
+
+  loadAppointments(): void {
+    this.appointmentService.getAppointmentsForPatient().subscribe({
+      next: (appointments) => {
+        this.upcomingAppointments = appointments
+          .filter((apt) => apt.status === 'PENDING' || apt.status === 'CONFIRMED')
+          .slice(0, 3);
+        this.stats.upcomingAppointments = this.upcomingAppointments.length;
+      },
+      error: (error) => {
+        console.error('Error loading appointments:', error);
+      },
+    });
+  }
+
+  loadMedicalRecords(): void {
+    this.medicalRecordService.getRecordsForPatient().subscribe({
+      next: (records) => {
+        this.medicalRecords = records;
+        this.stats.medicalRecords = records.length;
+        this.stats.activePrescriptions = records.reduce(
+          (count, record) => count + (record.prescriptions ? record.prescriptions.length : 0),
+          0
+        );
+      },
+      error: (error) => {
+        console.error('Error loading medical records:', error);
+      },
+    });
+  }
+
+  loadNotifications(): void {
+    this.notificationService.getPatientNotifications().subscribe({
+      next: (notifications) => {
+        this.notifications = notifications;
+        this.stats.notifications = notifications.length;
+      },
+      error: (error) => {
+        console.error('Error loading notifications:', error);
+      },
+    });
+  }
+
+  navigateToFindDoctors(): void {
+    this.router.navigate(['/patient/find-doctors']);
+  }
+
+  getStatusBadgeClass(status: string): string {
+    switch (status) {
+      case 'CONFIRMED':
+        return 'bg-green-100 text-green-800';
+      case 'PENDING':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'REJECTED':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }
+}
+
+
