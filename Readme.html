@@ -1,477 +1,842 @@
-// admin-dashboard.component.ts - UPDATED
-import { Component, OnInit, inject, HostListener } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { DoctorRegister } from '../../auth/register/doctor-register/doctor-register';
-import { AdminService, Doctor, DoctorUpdateRequest } from '../../../core/services/admin.service';
-import { AdminAuthService } from '../../../core/services/admin-auth.service';
+package com.cognizant.hams.controller;
 
-@Component({
-  selector: 'app-admin-dashboard',
-  standalone: true,
-  imports: [CommonModule, DoctorRegister, ReactiveFormsModule],
-  templateUrl: './admin-dashboard.html',
+import com.cognizant.hams.dto.request.AdminUserRequestDTO;
+import com.cognizant.hams.dto.request.DoctorDTO;
+import com.cognizant.hams.dto.response.DoctorResponseDTO;
+import com.cognizant.hams.entity.Doctor;
+import com.cognizant.hams.service.AdminService;
+import com.cognizant.hams.service.AuthService;
+
+import com.cognizant.hams.service.DoctorService;
+import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/admin")
+@RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
+public class AdminController {
+
+    private final AuthService authService;
+    private final ModelMapper modelMapper;
+    private final DoctorService doctorService;
+    private final AdminService adminService;
+
+    @PostMapping("/create-user")
+    public ResponseEntity<DoctorResponseDTO> createPrivilegedUser(@RequestBody AdminUserRequestDTO request) {
+        Doctor createdDoctor = authService.createPrivilegedUser(request);
+
+        DoctorResponseDTO responseDTO = modelMapper.map(createdDoctor, DoctorResponseDTO.class);
+
+        return new ResponseEntity<>(responseDTO, HttpStatus.CREATED);
+    }
+
+    @PutMapping("/doctors/{doctorId}")
+    public ResponseEntity<DoctorResponseDTO> updateDoctor(
+            @PathVariable Long doctorId,
+            @RequestBody DoctorDTO doctorDTO) {
+
+        DoctorResponseDTO updatedDoctor = doctorService.updateDoctor(doctorId, doctorDTO);
+        return new ResponseEntity<>(updatedDoctor, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/doctors/{doctorId}")
+    public ResponseEntity<DoctorResponseDTO> deleteDoctor(@PathVariable Long doctorId) {
+
+        DoctorResponseDTO deletedDoctorDTO = doctorService.deleteDoctor(doctorId);
+        return new ResponseEntity<>(deletedDoctorDTO, HttpStatus.NO_CONTENT);
+    }
+
+    @GetMapping("/doctors/recent")
+    public ResponseEntity<List<DoctorResponseDTO>> getRecentDoctors(){
+        List<DoctorResponseDTO> recentDoctors = adminService.getRecentDoctors();
+        return ResponseEntity.ok(recentDoctors);
+    }
+}
+
+
+
+
+
+          package com.cognizant.hams.controller;
+
+import com.cognizant.hams.dto.request.AppointmentDTO;
+import com.cognizant.hams.dto.response.AppointmentResponseDTO;
+import com.cognizant.hams.service.AppointmentService;
+import com.cognizant.hams.service.DoctorService;
+import com.cognizant.hams.service.NotificationService;
+import com.cognizant.hams.service.PatientService; // Or a dedicated AppointmentService
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api")
+public class AppointmentController {
+
+    private final AppointmentService appointmentService;
+
+    @PostMapping("/patients/me/appointments")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<AppointmentResponseDTO> bookAppointment(
+            @Valid @RequestBody AppointmentDTO appointmentDTO) {
+        AppointmentResponseDTO newAppointment = appointmentService.bookAppointment(appointmentDTO);
+        return new ResponseEntity<>(newAppointment, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/patients/me/status")
+    @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<List<AppointmentResponseDTO>> getAppointmentsForPatient() {
+        List<AppointmentResponseDTO> appointments = appointmentService.getAppointmentsForPatient();
+        return ResponseEntity.ok(appointments);
+    }
+
+    @GetMapping("/doctors/me/appointments")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<List<AppointmentResponseDTO>> getDoctorAppointments() {
+        List<AppointmentResponseDTO> appointments = appointmentService.getAppointmentsForDoctor();
+        return new ResponseEntity<>(appointments, HttpStatus.OK);
+    }
+
+    @GetMapping("/appointments/{appointmentId}")
+    public ResponseEntity<AppointmentResponseDTO> getAppointmentById(
+            @PathVariable("appointmentId") Long appointmentId) {
+        AppointmentResponseDTO appointment = appointmentService.getAppointmentById(appointmentId);
+        return ResponseEntity.ok(appointment);
+    }
+
+    @PatchMapping("patients/me/appointments/{appointmentId}")
+    public ResponseEntity<AppointmentResponseDTO> updateAppointment(
+            @PathVariable("appointmentId") Long appointmentId,
+            @Valid @RequestBody AppointmentDTO appointmentUpdateDTO) {
+        AppointmentResponseDTO updatedAppointment = appointmentService.updateAppointment(appointmentId, appointmentUpdateDTO);
+        return ResponseEntity.ok(updatedAppointment);
+    }
+
+    @PatchMapping("/appointments/{appointmentId}/cancel")
+    public ResponseEntity<AppointmentResponseDTO> cancelAppointment(
+            @PathVariable("appointmentId") Long appointmentId) {
+        AppointmentResponseDTO canceledAppointment = appointmentService.cancelAppointment(appointmentId);
+        return ResponseEntity.ok(canceledAppointment);
+    }
+
+    @PostMapping("/doctors/me/appointments/{appointmentId}/confirm")
+    @PreAuthorize("hasRole('DOCTOR')")
+    public ResponseEntity<AppointmentResponseDTO> confirmAppointment(@PathVariable Long appointmentId){
+        AppointmentResponseDTO responseDTO = appointmentService.confirmAppointment(appointmentId);
+        return ResponseEntity.ok(responseDTO);
+    }
+
+    @PostMapping("/doctors/me/appointments/{appointmentId}/reject")
+    public ResponseEntity<AppointmentResponseDTO> rejectAppointment(@PathVariable Long appointmentId,
+                                                                    @RequestParam(value = "reason", required = false) String reason){
+        AppointmentResponseDTO responseDTO = appointmentService.rejectAppointment(appointmentId, reason);
+        return ResponseEntity.ok(responseDTO);
+    }
+}
+
+
+
+
+
+
+      package com.cognizant.hams.controller;
+
+// DoctorPatientController.java
+import com.cognizant.hams.dto.response.MedicalRecordResponseDTO;
+import com.cognizant.hams.dto.response.PatientResponseDTO;
+import com.cognizant.hams.exception.APIException;
+import com.cognizant.hams.service.DoctorPatientService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/doctors/me/patients")
+@RequiredArgsConstructor
+@Slf4j
+public class DoctorPatientController {
+
+    private final DoctorPatientService doctorPatientService;
+
+    @GetMapping
+    public ResponseEntity<List<PatientResponseDTO>> getPatients(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            Long doctorId = getDoctorIdFromUserDetails(userDetails);
+            List<PatientResponseDTO> patients = doctorPatientService.getPatientsForDoctor(doctorId);
+            return ResponseEntity.ok(patients);
+        } catch (Exception e) {
+            log.error("Error fetching patients for doctor", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{patientId}")
+    public ResponseEntity<PatientResponseDTO> getPatientById(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long patientId) {
+        try {
+            Long doctorId = getDoctorIdFromUserDetails(userDetails);
+            PatientResponseDTO patient = doctorPatientService.getPatientById(doctorId, patientId);
+            return ResponseEntity.ok(patient);
+        } catch (RuntimeException e) {
+            log.error("Error fetching patient: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error fetching patient", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{patientId}/medical-records")
+    public ResponseEntity<List<MedicalRecordResponseDTO>> getPatientMedicalRecords(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long patientId) {
+        try {
+            Long doctorId = getDoctorIdFromUserDetails(userDetails);
+            List<MedicalRecordResponseDTO> medicalRecords =
+                    doctorPatientService.getPatientMedicalRecords(doctorId, patientId);
+            return ResponseEntity.ok(medicalRecords);
+        } catch (RuntimeException e) {
+            log.error("Error fetching medical records: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error fetching medical records", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<PatientResponseDTO>> searchPatients(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam String q) {
+        try {
+            Long doctorId = getDoctorIdFromUserDetails(userDetails);
+            List<PatientResponseDTO> patients = doctorPatientService.searchPatients(doctorId, q);
+            return ResponseEntity.ok(patients);
+        } catch (Exception e) {
+            log.error("Error searching patients", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // Helper method to extract doctor ID from authenticated user
+    private Long getDoctorIdFromUserDetails(UserDetails userDetails) {
+        // This depends on your authentication implementation
+        // You might need to customize this based on how you store doctor ID in the token
+        if (userDetails instanceof org.springframework.security.core.userdetails.User) {
+            // Extract doctor ID from username or custom UserDetails implementation
+            // For now, returning a mock ID - you'll need to implement this based on your auth system
+            return 1L; // Replace with actual doctor ID extraction
+        }
+        throw new APIException("Unable to extract doctor ID from authentication");
+    }
+}
+
+
+
+
+
+              package com.cognizant.hams.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@Entity
+@Table(name = "doctors")
+@Data
+@NoArgsConstructor
+public class Doctor {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long doctorId;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "userId")
+    private User user;
+
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Appointment> appointments = new HashSet<>();
+
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<MedicalRecord> medicalRecords = new ArrayList<>();
+
+    @NotBlank(message = "Doctor name is required")
+    @Size(min = 3, max = 25, message = "Name must be between 3 and 25 characters")
+    private String doctorName;
+
+    @NotBlank(message = "Phone number is required")
+    @Pattern(regexp = "^[0-9]{10}$", message = "Phone number must be exactly 10 digits")
+    @Column(unique = true)
+    private String contactNumber;
+
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid Email")
+    @Column(unique = true)
+    private String email;
+
+    @NotBlank(message = "Specialization of a doctor is required")
+    @Size(max = 30, message = "Specialization must not exceed 30 characters")
+    private String specialization;
+
+    @NotNull(message = "Year of experience is required")
+    private Integer yearOfExperience;
+
+    @NotBlank(message = "Medical Qualification is required")
+    @Size(max = 60, message = "Qualification should not exceed 100 characters")
+    private String qualification;
+
+    @NotBlank(message = "Clinic address is required")
+    @Size(max = 255, message = "Address cannot exceed 255 characters")
+    private String clinicAddress;
+
+    private String licenseNumber;
+
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Enumerated(EnumType.STRING)
+    private DoctorStatus status = DoctorStatus.ACTIVE;
+
+    @PrePersist
+    protected void onCreate(){
+        createdAt = LocalDateTime.now();
+    }
+
+    public enum DoctorStatus{
+        ACTIVE, INACTIVE, PENDING;
+    }
+}
+
+
+
+
+
+
+
+
+      package com.cognizant.hams.entity;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+@Entity
+@Table(name = "patients", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"email"}),
+        @UniqueConstraint(columnNames = {"contactNumber"})
 })
-export class AdminDashboard implements OnInit {
-  private adminService = inject(AdminService);
-  private adminAuthService = inject(AdminAuthService);
-  private fb = inject(FormBuilder);
-  private router = inject(Router);
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Patient {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long patientId;
 
-  recentDoctors: Doctor[] = [];
-  showDoctorRegister = false;
-  showUpdateDoctor = false;
-  isLoading = true;
-  isUpdating = false;
-  updateError = '';
-  selectedDoctor: Doctor | null = null;
+    @OneToOne
+    @JoinColumn(name = "userId")
+    private User user;
 
-  updateDoctorForm: FormGroup;
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Appointment> appointments;
 
-  // Dropdown states
-  showProfile = false;
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<MedicalRecord> medicalRecords = new ArrayList<>();
 
-  // Current admin data
-  currentAdmin: any;
+    @Column(name = "name", nullable = false)
+    private String name;
 
-  constructor() {
-    this.updateDoctorForm = this.fb.group({
-      contactNumber: ['', [Validators.required, Validators.pattern(/^[0-9]{10}$/)]],
-      yearOfExperience: ['', [Validators.required, Validators.min(0), Validators.max(50)]],
-      clinicAddress: ['', [Validators.required, Validators.minLength(10)]],
-    });
-  }
+    @Past
+    private LocalDate dateOfBirth;
 
-  ngOnInit() {
-    this.loadCurrentAdmin();
-    this.loadDashboardData();
-  }
+    private String gender;
 
-  loadCurrentAdmin() {
-    this.currentAdmin = this.adminAuthService.getCurrentAdmin();
-  }
+    @Pattern(regexp = "\\d{10}", message = "Invalid contact number")
+    private String contactNumber;
 
-  loadDashboardData() {
-    this.isLoading = true;
+    @Email
+    @NotBlank
+    @Column(unique = true)
+    private String email;
 
-    // First test backend connectivity
-    console.log('🔍 Testing backend connectivity...');
-    this.adminService.testBackendHealth().subscribe({
-      next: (response) => {
-        console.log('✅ Backend is reachable:', response);
-        this.loadDoctors();
-      },
-      error: (error) => {
-        console.error('❌ Backend connectivity test failed:', error);
-        console.error('Backend test error details:', {
-          status: error.status,
-          message: error.message,
-          url: error.url,
-        });
-        // Still try to load doctors even if health check fails
-        this.loadDoctors();
-      },
-    });
-  }
+    @NotBlank(message = "Address is required")
+    private String address;
 
-  private loadDoctors() {
-    // Load doctors
-    this.adminService.getRecentDoctors().subscribe({
-      next: (doctors) => {
-        console.log('✅ Recent doctors loaded:', doctors);
-        console.log(
-          'Doctor data structure:',
-          doctors.map((d) => ({
-            id: d.id,
-            doctorId: d.doctorId,
-            userId: d.userId,
-            doctorName: d.doctorName,
-          }))
-        );
-        this.recentDoctors = doctors;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error loading recent doctors:', error);
-        console.error('Error details:', {
-          status: error.status,
-          statusText: error.statusText,
-          message: error.message,
-          url: error.url,
-        });
+    private String bloodGroup;
+}
 
-        // Check if it's a 500 error - likely backend issue
-        if (error.status === 500) {
-          console.error('🚨 Backend 500 error - possible issues:');
-          console.error('1. Backend endpoint /api/admin/doctors/recent might not exist');
-          console.error('2. Backend might have a bug in the doctors endpoint');
-          console.error('3. Database connection issue');
-          console.error('4. Authentication/authorization issue in backend');
+
+
+
+
+
+
+      package com.cognizant.hams.entity;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+import java.util.UUID;
+
+@Entity
+@Table(name = "users")
+@Data
+public class User {
+    @Id
+    private String userId;
+    private String username;
+    private String password;
+
+    @ManyToOne
+    @JoinColumn(name = "roleId")
+    private Role role;
+
+    @OneToOne(mappedBy = "user")
+    private Doctor doctor;
+
+    @OneToOne(mappedBy = "user")
+    private Patient patient;
+
+    @PrePersist
+    public void generateId() {
+        if (this.userId == null) {
+            this.userId = UUID.randomUUID().toString();
+        }
+    }
+}
+
+
+
+
+
+
+
+
+      package com.cognizant.hams.repository;
+
+import com.cognizant.hams.entity.Appointment;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.util.List;
+
+public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
+    List<Appointment> findByPatient_PatientId(Long patientId);
+
+    List<Appointment> findByDoctor_DoctorId(Long doctorId);
+
+    List<Appointment> findByDoctorDoctorId(Long doctorId);
+
+    List<Appointment> findByDoctorDoctorIdAndAppointmentDate(Long doctorId, LocalDate date);
+
+    @Query("SELECT a FROM Appointment a WHERE a.doctor.doctorId = :doctorId AND a.patient.patientId = :patientId")
+    List<Appointment> findByDoctorIdAndPatientId(@Param("doctorId") Long doctorId,
+                                                 @Param("patientId") Long patientId);
+}
+
+
+
+
+
+
+
+      package com.cognizant.hams.repository;
+
+import jakarta.validation.constraints.FutureOrPresent;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import com.cognizant.hams.entity.DoctorAvailability;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+
+@Repository
+public interface DoctorAvailabilityRepository extends JpaRepository<DoctorAvailability, Long> {
+
+    List<DoctorAvailability> findByDoctorDoctorId(Long doctorId);
+
+    boolean existsByDoctorDoctorIdAndAvailableDateAndStartTime(Long doctorId, @FutureOrPresent(message = "Availability date must be in the present or future") @NotNull(message = "Availability date is required") LocalDate availableDate, @NotNull(message = "Start time is required") LocalTime startTime);
+    // Add this method for better overlap detection
+    @Query("SELECT da FROM DoctorAvailability da WHERE da.doctor.doctorId = :doctorId AND da.availableDate = :availableDate AND " +
+            "((da.startTime <= :endTime AND da.endTime >= :startTime))")
+    List<DoctorAvailability> findOverlappingSlots(@Param("doctorId") Long doctorId,
+                                                  @Param("availableDate") LocalDate availableDate,
+                                                  @Param("startTime") LocalTime startTime,
+                                                  @Param("endTime") LocalTime endTime);
+}
+
+
+
+
+
+
+
+
+
+
+      package com.cognizant.hams.repository;
+
+import com.cognizant.hams.dto.response.DoctorAndAvailabilityResponseDTO;
+import com.cognizant.hams.entity.Doctor;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface DoctorRepository extends JpaRepository<Doctor, Long> {
+
+    Optional<Doctor> findByDoctorId(Long doctorId);
+
+    boolean existsByDoctorNameAndSpecialization(String doctorName, String specialization);
+
+    List<Doctor> findBySpecializationContainingIgnoreCase(String specialization);
+
+    List<Doctor> findByDoctorNameContainingIgnoreCase(String name);
+
+    @Query(value = "SELECT d.doctor_id, d.contact_number, d.doctor_name, d.email, d.clinic_address, " +
+            "d.specialization, d.qualification, d.year_of_experience, a.start_time, a.end_time, " +
+            "a.available_date, a.available " +
+            "FROM doctors d " +
+            "JOIN doctor_availability a ON d.doctor_id = a.doctor_id " +
+            "WHERE doctor_name = :doctorName AND available = 1", nativeQuery = true)
+    List<DoctorAndAvailabilityResponseDTO> findByAvailableDoctorNameAndAvailability(@Param("doctorName") String doctorName);
+
+    @Query(value = "SELECT d.doctor_id, d.contact_number, d.doctor_name, d.email, d.clinic_address, " +
+            "d.specialization, d.qualification, d.year_of_experience, a.start_time, a.end_time, " +
+            "a.available_date, a.available " +
+            "FROM doctors d " +
+            "JOIN doctor_availability a ON d.doctor_id = a.doctor_id " +
+            "WHERE doctor_name = :doctorName", nativeQuery = true)
+    List<DoctorAndAvailabilityResponseDTO> findByDoctorNameAndAvailability(@Param("doctorName") String doctorName);
+
+    // ✅ Correct version for fetching doctor by username
+    Optional<Doctor> findByUser_Username(String username);
+
+    @Query("SELECT d FROM Doctor d WHERE d.createdAt >= :startDate ORDER BY d.createdAt DESC")
+    List<Doctor> findRecentDoctors(@Param("startDate") LocalDateTime startDate);
+
+    long count();
+}
+
+
+
+
+
+
+
+
+      package com.cognizant.hams.repository;
+
+import com.cognizant.hams.entity.MedicalRecord;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Long> {
+    List<MedicalRecord> findByPatient_PatientIdOrderByCreatedAtDesc(Long patientId);
+    List<MedicalRecord> findByDoctor_DoctorIdOrderByCreatedAtDesc(Long doctorId);
+
+    List<MedicalRecord> findByPatientPatientId(Long patientId);
+
+    @Query("SELECT mr FROM MedicalRecord mr " +
+            "WHERE mr.patient.patientId = :patientId " +
+            "AND mr.doctor.doctorId = :doctorId")
+    List<MedicalRecord> findByPatientIdAndDoctorId(@Param("patientId") Long patientId,
+                                                   @Param("doctorId") Long doctorId);
+
+    @Query("SELECT mr FROM MedicalRecord mr " +
+            "WHERE mr.doctor.doctorId = :doctorId")
+    List<MedicalRecord> findByDoctorId(@Param("doctorId") Long doctorId);
+}
+
+
+
+
+
+
+
+
+      package com.cognizant.hams.repository;
+
+import com.cognizant.hams.entity.Patient;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface PatientRepository extends JpaRepository<Patient, Long> {
+    Optional<Object> findByUser_Username(String currentUsername);
+
+    Optional<Patient> findByEmail(String email);
+
+    List<Patient> findByNameContainingIgnoreCase(String name);
+
+    @Query("SELECT DISTINCT p FROM Patient p " +
+            "JOIN Appointment a ON p.patientId = a.patient.patientId " +
+            "WHERE a.doctor.doctorId = :doctorId")
+    List<Patient> findPatientsByDoctorId(@Param("doctorId") Long doctorId);
+
+    @Query("SELECT p FROM Patient p " +
+            "JOIN Appointment a ON p.patientId = a.patient.patientId " +
+            "WHERE a.doctor.doctorId = :doctorId " +
+            "AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
+            "OR LOWER(p.email) LIKE LOWER(CONCAT('%', :searchTerm, '%')))")
+    List<Patient> searchPatientsByDoctorId(@Param("doctorId") Long doctorId,
+                                           @Param("searchTerm") String searchTerm);
+
+}
+
+
+
+
+
+
+
+      package com.cognizant.hams.service.impl;
+
+import com.cognizant.hams.dto.request.AppointmentDTO;
+import com.cognizant.hams.dto.response.AppointmentResponseDTO;
+import com.cognizant.hams.entity.Appointment;
+import com.cognizant.hams.entity.AppointmentStatus;
+import com.cognizant.hams.entity.Doctor;
+import com.cognizant.hams.entity.Patient;
+import com.cognizant.hams.exception.APIException;
+import com.cognizant.hams.exception.ResourceNotFoundException;
+import com.cognizant.hams.repository.AppointmentRepository;
+import com.cognizant.hams.repository.DoctorRepository;
+import com.cognizant.hams.repository.PatientRepository;
+import com.cognizant.hams.service.AppointmentService;
+import com.cognizant.hams.service.NotificationService;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@RequiredArgsConstructor
+@Service
+public class AppointmentServiceImpl implements AppointmentService {
+
+    private final AppointmentRepository appointmentRepository;
+    private final NotificationService notificationService;
+    private final ModelMapper modelMapper;
+    private final PatientRepository patientRepository;
+    private final DoctorRepository doctorRepository;
+
+    @Override
+    @Transactional
+    public AppointmentResponseDTO rejectAppointment(Long appointmentId, String reason) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
+
+        Doctor loggedInDoctor = (Doctor) doctorRepository.findByUser_Username(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "username", currentUsername));
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+
+        if (!appointment.getDoctor().getDoctorId().equals(loggedInDoctor.getDoctorId())) {
+            throw new AccessDeniedException("Doctor is not authorized to update this appointment.");
+        }
+        appointment.setStatus(AppointmentStatus.REJECTED);
+        Appointment saved = appointmentRepository.save(appointment);
+        notificationService.notifyPatientOnAppointmentDecision(saved, false, reason);
+        return modelMapper.map(saved, AppointmentResponseDTO.class);
+    }
+
+    @Override
+    @Transactional
+    public AppointmentResponseDTO confirmAppointment(Long appointmentId) {
+        // 1. Get the authenticated doctor's username from the security context
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
+
+        Doctor loggedInDoctor = (Doctor) doctorRepository.findByUser_Username(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "username", currentUsername));
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+
+        if (!appointment.getDoctor().getDoctorId().equals(loggedInDoctor.getDoctorId())) {
+            throw new AccessDeniedException("Doctor is not authorized to update this appointment.");
         }
 
-        // Try to load all doctors as fallback
-        this.loadAllDoctorsAsFallback();
-        this.handleApiError(error);
-      },
-    });
-  }
+        // 5. Update appointment status and save
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        Appointment saved = appointmentRepository.save(appointment);
 
-  private handleApiError(error: any) {
-    if (error.status === 401) {
-      this.adminAuthService.logout();
+        // 6. Notify the patient
+        notificationService.notifyPatientOnAppointmentDecision(saved, true, null);
+
+        return modelMapper.map(saved, AppointmentResponseDTO.class);
     }
-  }
+    @Override
+    public List<AppointmentResponseDTO> getAppointmentsForPatient() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
 
-  private loadAllDoctorsAsFallback() {
-    console.log('🔄 Attempting to load all doctors as fallback...');
-    this.adminService.getAllDoctors().subscribe({
-      next: (doctors) => {
-        console.log('✅ Fallback: Loaded all doctors successfully:', doctors);
-        console.log(
-          'Fallback doctor data structure:',
-          doctors.map((d) => ({
-            id: d.id,
-            doctorId: d.doctorId,
-            userId: d.userId,
-            doctorName: d.doctorName,
-          }))
-        );
-        // Take the first 5 doctors as "recent"
-        this.recentDoctors = doctors.slice(0, 5);
-        this.isLoading = false;
-      },
-      error: (fallbackError) => {
-        console.error('❌ Fallback also failed:', fallbackError);
-        console.error('Fallback error details:', {
-          status: fallbackError.status,
-          message: fallbackError.message,
-          url: fallbackError.url,
-        });
-        this.recentDoctors = []; // Empty array if both fail
-        this.isLoading = false;
-      },
-    });
-  }
+        Patient patient = (Patient) patientRepository.findByUser_Username(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient", "username", currentUsername));
 
-  // Update Doctor Methods
-  openUpdateDoctor(doctor: Doctor) {
-    console.log('Opening update for doctor:', doctor);
+        List<Appointment> appointments = appointmentRepository.findByPatient_PatientId(patient.getPatientId());
 
-    // Validate doctor ID - use doctorId as primary, fallback to id
-    const doctorId = doctor.doctorId ?? doctor.id;
-    if (!doctorId || isNaN(doctorId)) {
-      console.error('Invalid doctor ID:', {
-        doctorId,
-        id: doctor.id,
-        doctorIdField: doctor.doctorId,
-      });
-      this.updateError = 'Invalid doctor ID';
-      return;
+        return appointments.stream()
+                .map(appointment -> modelMapper.map(appointment, AppointmentResponseDTO.class))
+                .collect(Collectors.toList());
     }
 
-    this.selectedDoctor = doctor;
-    this.updateDoctorForm.patchValue({
-      contactNumber: doctor.contactNumber,
-      yearOfExperience: doctor.yearOfExperience,
-      clinicAddress: doctor.clinicAddress,
-    });
-    this.showUpdateDoctor = true;
-    this.updateError = '';
-  }
+    @Override
+    public List<AppointmentResponseDTO> getAppointmentsForDoctor() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
 
-  closeUpdateDoctor() {
-    this.showUpdateDoctor = false;
-    this.selectedDoctor = null;
-    this.updateDoctorForm.reset();
-    this.updateError = '';
-    this.isUpdating = false;
-  }
+        Doctor doctor = doctorRepository.findByUser_Username(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "username", currentUsername));
 
-  onUpdateDoctor() {
-    if (this.updateDoctorForm.valid && this.selectedDoctor) {
-      this.isUpdating = true;
-      this.updateError = '';
+        List<Appointment> appointments = appointmentRepository.findByDoctor_DoctorId(doctor.getDoctorId());
 
-      const updateData: DoctorUpdateRequest = {
-        contactNumber: this.updateDoctorForm.value.contactNumber,
-        yearOfExperience: this.updateDoctorForm.value.yearOfExperience,
-        clinicAddress: this.updateDoctorForm.value.clinicAddress,
-      };
-
-      const doctorId = this.selectedDoctor.doctorId ?? this.selectedDoctor.id;
-      console.log('🔄 Updating doctor with ID:', doctorId);
-
-      this.adminService.updateDoctor(doctorId, updateData).subscribe({
-        next: (response) => {
-          this.isUpdating = false;
-          console.log('✅ Doctor updated successfully:', response);
-          this.closeUpdateDoctor();
-          // Refresh the doctors list to show updated data
-          this.loadDashboardData();
-        },
-        error: (error) => {
-          this.isUpdating = false;
-          console.error('❌ Error updating doctor:', error);
-          console.error('Error details:', {
-            status: error.status,
-            message: error.message,
-            doctorId: doctorId,
-            selectedDoctor: this.selectedDoctor,
-          });
-          this.updateError = error.error?.message || 'Failed to update doctor. Please try again.';
-        },
-      });
-    }
-  }
-
-  deleteDoctor(doctorId: number) {
-    console.log('🗑️ Attempting to delete doctor with ID:', doctorId);
-    this.adminService.deleteDoctor(doctorId).subscribe({
-      next: (response) => {
-        console.log('✅ Doctor deleted successfully:', response);
-        // Refresh the doctors list to show updated data
-        this.loadDashboardData();
-      },
-      error: (error) => {
-        console.error('❌ Error deleting doctor:', error);
-        console.error('Delete error details:', {
-          status: error.status,
-          message: error.message,
-          doctorId: doctorId,
-        });
-      },
-    });
-  }
-
-  // Existing methods (keep all your existing methods)
-
-  toggleProfile() {
-    this.showProfile = !this.showProfile;
-  }
-
-  closeDropdowns() {
-    this.showProfile = false;
-  }
-
-  openDoctorRegister() {
-    this.showDoctorRegister = true;
-  }
-
-  closeDoctorRegister() {
-    this.showDoctorRegister = false;
-  }
-
-  onDoctorCreated() {
-    this.closeDoctorRegister();
-    // Refresh the doctors list when a new doctor is added
-    this.refreshDoctorsList();
-  }
-
-  private refreshDoctorsList() {
-    console.log('🔄 Refreshing doctors list...');
-    this.isLoading = true;
-
-    // Try recent doctors first
-    this.adminService.getRecentDoctors().subscribe({
-      next: (doctors) => {
-        console.log('✅ Recent doctors loaded successfully');
-        this.recentDoctors = doctors;
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.log('⚠️ Recent doctors failed, trying fallback...');
-        this.loadAllDoctorsAsFallback();
-      },
-    });
-  }
-
-  logout() {
-    this.adminAuthService.logout();
-  }
-
-  formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 1) {
-      return `${Math.floor(diffInHours * 60)} minutes ago`;
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)} hours ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
-  }
-
-  getStatusClass(status: string): string {
-    const baseClasses = 'px-2 py-1 rounded-full text-xs font-semibold';
-    switch (status) {
-      case 'ACTIVE':
-        return `${baseClasses} bg-green-100 text-green-800`;
-      case 'INACTIVE':
-        return `${baseClasses} bg-red-100 text-red-800`;
-      case 'PENDING':
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
-      default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
-    }
-  }
-
-  getSpecializations(): string[] {
-    return [
-      'Cardiology',
-      'Dermatology',
-      'Orthopedics',
-      'Pediatrics',
-      'Neurology',
-      'Psychiatry',
-      'Dentistry',
-      'Ophthalmology',
-      'Gynecology',
-      'General Surgery',
-      'Internal Medicine',
-      'Emergency Medicine',
-    ];
-  }
-
-  // Close dropdowns when clicking outside
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.dropdown-trigger') && !target.closest('.dropdown-content')) {
-      this.closeDropdowns();
-    }
-  }
-
-  // Get admin initials for profile picture
-  getAdminInitials(): string {
-    if (this.currentAdmin?.adminName) {
-      return this.currentAdmin.adminName
-        .split(' ')
-        .map((n: string) => n[0])
-        .join('')
-        .toUpperCase();
-    }
-    return 'AD';
-  }
-}
-
-
-
-      // services/admin.service.ts - REAL BACKEND CALLS
-import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
-import { AdminAuthService } from './admin-auth.service';
-import { AuthDoctorRequest } from '../../models/auth-doctor-interface';
-
-export interface Doctor {
-  // Support both field names - backend uses UUIDs for user IDs
-  id?: number; // Optional for now
-  doctorId: number; // Primary field
-
-  doctorName: string;
-  email: string;
-  specialization: string;
-  yearOfExperience: number;
-  contactNumber: string;
-  qualification: string;
-  clinicAddress: string;
-  licenseNumber?: string;
-  status: 'ACTIVE' | 'INACTIVE' | 'PENDING';
-  createdAt: string;
-  userId?: string; // Changed to string for UUID
-  username?: string;
-}
-
-export interface DoctorUpdateRequest {
-  contactNumber: string;
-  yearOfExperience: number;
-  clinicAddress: string;
-}
-
-@Injectable({
-  providedIn: 'root',
-})
-export class AdminService {
-  private http = inject(HttpClient);
-  private adminAuthService = inject(AdminAuthService);
-  private apiUrl = environment.apiUrl;
-
-  private getAuthHeaders(): HttpHeaders {
-    const token = this.adminAuthService.getToken();
-    console.log('🔐 Auth token present:', !!token);
-    console.log('🔐 Token preview:', token ? `${token.substring(0, 20)}...` : 'NO TOKEN');
-    return new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    });
-  }
-
-  getDoctorId(doctor: Doctor): number {
-    return doctor.doctorId ?? doctor.id ?? 0;
-  }
-
-  // Get user ID (UUID) for operations that need it
-  getUserId(doctor: Doctor): string | null {
-    return doctor.userId || null;
-  }
-
-  // Create doctor user with admin privileges
-  createDoctor(doctorData: AuthDoctorRequest): Observable<any> {
-    return this.http.post(`${this.apiUrl}/admin/create-user`, doctorData, {
-      headers: this.getAuthHeaders(),
-      responseType: 'text' as 'json',
-    });
-  }
-
-  // Update doctor details
-  updateDoctor(doctorId: number, updateData: DoctorUpdateRequest): Observable<any> {
-    // Validate doctorId
-    if (!doctorId || isNaN(doctorId) || doctorId <= 0) {
-      throw new Error('Invalid doctor ID');
+        return appointments.stream()
+                .map(appointment -> modelMapper.map(appointment, AppointmentResponseDTO.class))
+                .collect(Collectors.toList());
     }
 
-    return this.http.put(`${this.apiUrl}/admin/doctors/${doctorId}`, updateData, {
-      headers: this.getAuthHeaders(),
-    });
-  }
+    @Override
+    public AppointmentResponseDTO bookAppointment(AppointmentDTO appointmentDTO) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
 
-  // Delete doctor
-  deleteDoctor(doctorId: number): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/admin/doctors/${doctorId}`, {
-      headers: this.getAuthHeaders(),
-    });
-  }
+        Patient patient = (Patient) patientRepository.findByUser_Username(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient", "username", currentUsername));
 
-  getRecentDoctors(): Observable<Doctor[]> {
-    const url = `${this.apiUrl}/admin/doctors/recent`;
-    console.log('🔗 Making request to:', url);
-    console.log('🔗 Full URL would be:', `${this.apiUrl}/admin/doctors/recent`);
-    return this.http.get<Doctor[]>(url, {
-      headers: this.getAuthHeaders(),
-    });
-  }
+        Doctor doctor = doctorRepository.findById(appointmentDTO.getDoctorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "Id", appointmentDTO.getDoctorId()));
 
-  getAllDoctors(): Observable<Doctor[]> {
-    const url = `${this.apiUrl}/admin/doctors`;
-    console.log('🔗 Making request to:', url);
-    console.log('🔗 Full URL would be:', url);
-    return this.http.get<Doctor[]>(url, {
-      headers: this.getAuthHeaders(),
-    });
-  }
+        Appointment appointment = modelMapper.map(appointmentDTO, Appointment.class);
+        appointment.setAppointmentId(null);
+        appointment.setVersion(null);
+        appointment.setStatus(AppointmentStatus.PENDING);
+        appointment.setPatient(patient);
+        appointment.setDoctor(doctor);
 
-  // Test a simple endpoint to verify backend connectivity
-  testBackendHealth(): Observable<any> {
-    const url = `${this.apiUrl}/auth/login`; // Use a simple endpoint that should exist
-    console.log('🔗 Testing backend health at:', url);
-    return this.http.get(url, {
-      headers: this.getAuthHeaders(),
-    });
-  }
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+        notificationService.notifyDoctorOnAppointmentRequest(savedAppointment);
+
+        return modelMapper.map(savedAppointment, AppointmentResponseDTO.class);
+    }
+
+    @Override
+    public AppointmentResponseDTO updateAppointment(Long appointmentId, AppointmentDTO appointmentUpdateDTO) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
+
+        Appointment existingAppointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "Id", appointmentId));
+
+        String patientUsername = existingAppointment.getPatient().getUser().getUsername();
+        String doctorUsername = existingAppointment.getDoctor().getUser().getUsername();
+
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean isPatient = currentUsername.equals(patientUsername);
+        boolean isDoctor = currentUsername.equals(doctorUsername);
+
+        if (!isAdmin && !isPatient && !isDoctor) {
+            throw new AccessDeniedException("You do not have permission to update this appointment.");
+        }
+
+        if (appointmentUpdateDTO.getDoctorId() != null && !existingAppointment.getDoctor().getDoctorId().equals(appointmentUpdateDTO.getDoctorId())) {
+            Doctor newDoctor = doctorRepository.findById(appointmentUpdateDTO.getDoctorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor", "Id", appointmentUpdateDTO.getDoctorId()));
+            existingAppointment.setDoctor(newDoctor);
+        }
+        Appointment updatedAppointment = appointmentRepository.save(existingAppointment);
+        return modelMapper.map(updatedAppointment, AppointmentResponseDTO.class);
+    }
+
+    @Override
+    public AppointmentResponseDTO cancelAppointment(Long appointmentId) {
+        Appointment appointmentToCancel = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "Id", appointmentId));
+
+        if (appointmentToCancel.getStatus() == AppointmentStatus.COMPLETED || appointmentToCancel.getStatus() == AppointmentStatus.CANCELED) {
+            throw new APIException("Appointment cannot be canceled as it is already " + appointmentToCancel.getStatus());
+        }
+
+        appointmentToCancel.setStatus(AppointmentStatus.CANCELED);
+        Appointment canceledAppointment = appointmentRepository.save(appointmentToCancel);
+
+        return modelMapper.map(canceledAppointment, AppointmentResponseDTO.class);
+    }
+
+    @Override
+    public AppointmentResponseDTO getAppointmentById(Long appointmentId) {
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "Id", appointmentId));
+        return modelMapper.map(appointment, AppointmentResponseDTO.class);
+    }
 }
 
 
@@ -480,328 +845,475 @@ export class AdminService {
 
 
 
+          package com.cognizant.hams.service.impl;
 
-    <!-- admin-dashboard.component.html -->
-<div class="dashboard">
-  <div class="flex min-h-screen">
-    <!-- Sidebar -->
-    <aside class="w-64 bg-white shadow-md p-6 flex flex-col">
-      <div class="mb-8 border-b pb-4">
-        <div class="text-2xl font-bold text-blue-600 flex items-center gap-2">⚕ MediCare</div>
-      </div>
-      <ul class="flex flex-col gap-2">
-        <li>
-          <a
-            href="#"
-            class="flex items-center gap-2 px-4 py-2 font-medium text-gray-700 bg-blue-50 border-l-4 border-blue-600 rounded-l"
-            >📊 Dashboard</a
-          >
-        </li>
-        <li>
-          <a
-            href="#"
-            class="flex items-center gap-2 px-4 py-2 font-medium text-gray-700 hover:bg-gray-100 hover:border-l-4 hover:border-blue-600 rounded-l"
-            >👨‍⚕️ Manage Doctors</a
-          >
-        </li>
-        <li>
-          <a
-            href="#"
-            class="flex items-center gap-2 px-4 py-2 font-medium text-gray-700 hover:bg-gray-100 hover:border-l-4 hover:border-blue-600 rounded-l"
-            >⚙️ System Settings</a
-          >
-        </li>
-        <li>
-          <button
-            (click)="logout()"
-            class="flex items-center gap-2 px-4 py-2 font-medium text-red-600 hover:bg-gray-100 hover:border-l-4 hover:border-red-600 rounded-l w-full text-left"
-          >
-            🚪 Logout
-          </button>
-        </li>
-      </ul>
-    </aside>
+import com.cognizant.hams.dto.request.DoctorAvailabilityDTO;
+import com.cognizant.hams.dto.response.DoctorAndAvailabilityResponseDTO;
+import com.cognizant.hams.dto.response.DoctorAvailabilityResponseDTO;
+import com.cognizant.hams.entity.Doctor;
+import com.cognizant.hams.entity.DoctorAvailability;
+import com.cognizant.hams.exception.APIException;
+import com.cognizant.hams.exception.ResourceNotFoundException;
+import com.cognizant.hams.repository.DoctorAvailabilityRepository;
+import com.cognizant.hams.repository.DoctorRepository;
+import com.cognizant.hams.service.DoctorAvailabilityService;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
 
-    <!-- Main Content -->
-    <main class="flex-1 p-8 bg-gray-100 overflow-y-auto">
-      <!-- Top Bar -->
-      <div class="flex justify-between items-center mb-8 bg-white p-4 rounded-lg shadow">
-        <h1 class="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
-        <div class="flex items-center gap-4">
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
-          <!-- Profile -->
-          <div class="relative dropdown-trigger">
-            <div
-              (click)="toggleProfile()"
-              class="flex items-center gap-3 bg-gray-100 p-2 rounded-lg cursor-pointer hover:bg-gray-200 transition"
-            >
-              <div
-                class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold flex items-center justify-center"
-              >
-                {{ getAdminInitials() }}
-              </div>
-              <div class="text-left">
-                <div class="font-semibold text-gray-800 text-sm">
-                  {{ currentAdmin?.adminName || 'Admin User' }}
-                </div>
-                <div class="text-gray-500 text-xs">System Administrator</div>
-              </div>
-              <span class="text-gray-500 text-xs">▼</span>
-            </div>
-            @if (showProfile) {
-            <div
-              class="dropdown-content absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-lg z-50"
-            >
-              <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">👤 My Profile</a>
-              <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100"
-                >⚙️ System Settings</a
-              >
-              <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">📊 Reports</a>
-              <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100">🔐 Security</a>
-              <a href="#" class="flex items-center gap-2 p-3 hover:bg-gray-100"
-                >❓ Help & Support</a
-              >
-              <button
-                (click)="logout()"
-                class="flex items-center gap-2 p-3 text-red-600 hover:bg-gray-100 w-full text-left"
-              >
-                🚪 Logout
-              </button>
-            </div>
+@Service
+@RequiredArgsConstructor
+public class DoctorAvailabilityServiceImpl implements DoctorAvailabilityService {
+
+    private final DoctorRepository doctorRepository;
+    private final ModelMapper modelMapper;
+    private final DoctorAvailabilityRepository doctorAvailabilityRepository;
+
+
+    // Add Availability
+    @Transactional
+    @Override
+    public DoctorAvailabilityResponseDTO addAvailability(DoctorAvailabilityDTO slotDto) {
+        try {
+            // Get authenticated doctor
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String currentUsername = authentication.getName();
+
+            Doctor loggedInDoctor = doctorRepository.findByUser_Username(currentUsername)
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor", "username", currentUsername));
+
+            // Validate the availability slot
+            validateAvailabilitySlot(slotDto, loggedInDoctor.getDoctorId());
+
+            // Create and save availability
+            DoctorAvailability doctorAvailability = modelMapper.map(slotDto, DoctorAvailability.class);
+            doctorAvailability.setDoctor(loggedInDoctor);
+            doctorAvailability.setAvailable(true); // Ensure availability is set
+
+            DoctorAvailability savedAvailability = doctorAvailabilityRepository.save(doctorAvailability);
+            return modelMapper.map(savedAvailability, DoctorAvailabilityResponseDTO.class);
+
+        } catch (DataIntegrityViolationException e) {
+            throw new APIException("Duplicate time slot found. Please choose a different date/time.");
+        } catch (Exception e) {
+            throw new APIException("Error adding availability: " + e.getMessage());
+        }
+    }
+
+    private void validateAvailabilitySlot(DoctorAvailabilityDTO slotDto, Long doctorId) {
+        // Check for exact duplicate
+        if (doctorAvailabilityRepository.existsByDoctorDoctorIdAndAvailableDateAndStartTime(
+                doctorId, slotDto.getAvailableDate(), slotDto.getStartTime())) {
+            throw new APIException("The specified time slot is already registered for this doctor.");
+        }
+
+        // Validate date is not in the past
+        if (slotDto.getAvailableDate().isBefore(LocalDate.now())) {
+            throw new APIException("Availability date cannot be in the past.");
+        }
+
+        // Validate time range
+        if (slotDto.getStartTime().isAfter(slotDto.getEndTime())) {
+            throw new APIException("Start time cannot be after end time.");
+        }
+
+        // Check for overlapping time slots (you might want to add this)
+        checkForOverlappingSlots(slotDto, doctorId);
+    }
+
+    private void checkForOverlappingSlots(DoctorAvailabilityDTO slotDto, Long doctorId) {
+        List<DoctorAvailability> existingSlots = doctorAvailabilityRepository.findByDoctorDoctorId(doctorId);
+
+        for (DoctorAvailability existingSlot : existingSlots) {
+            if (existingSlot.getAvailableDate().equals(slotDto.getAvailableDate()) &&
+                    timeRangesOverlap(existingSlot.getStartTime(), existingSlot.getEndTime(),
+                            slotDto.getStartTime(), slotDto.getEndTime())) {
+                throw new APIException("Time slot overlaps with existing availability on the same date.");
             }
-          </div>
-        </div>
-      </div>
+        }
+    }
 
-      <!-- Loading State -->
-      @if (isLoading) {
-      <div class="flex justify-center items-center h-64">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-      } @else {
+    private boolean timeRangesOverlap(LocalTime start1, LocalTime end1, LocalTime start2, LocalTime end2) {
+        return !(end1.isBefore(start2) || start1.isAfter(end2));
+    }
+    // Get Availability
 
-      <!-- Doctors List -->
-      <div class="bg-white p-6 rounded-xl shadow mb-6">
-        <div class="flex justify-between items-center mb-4 border-b pb-3">
-          <h2 class="text-lg font-semibold text-gray-800">Registered Doctors</h2>
-          <button
-            (click)="openDoctorRegister()"
-            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
-          >
-            <span>+</span> Add New Doctor
-          </button>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead class="bg-gray-100">
-              <tr>
-                <th class="px-4 py-2 text-sm font-semibold text-gray-700">Name</th>
-                <th class="px-4 py-2 text-sm font-semibold text-gray-700">Specialization</th>
-                <th class="px-4 py-2 text-sm font-semibold text-gray-700">Experience</th>
-                <th class="px-4 py-2 text-sm font-semibold text-gray-700">Qualification</th>
-                <th class="px-4 py-2 text-sm font-semibold text-gray-700">Contact Number</th>
-                <th class="px-4 py-2 text-sm font-semibold text-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-              @for (doctor of recentDoctors; track doctor.id) {
-              <tr class="hover:bg-gray-50">
-                <td class="px-4 py-2 font-semibold">{{ doctor.doctorName }}</td>
-                <td class="px-4 py-2">{{ doctor.specialization }}</td>
-                <td class="px-4 py-2">{{ doctor.yearOfExperience }} years</td>
-                <td class="px-4 py-2">{{ doctor.qualification }}</td>
-                <td class="px-4 py-2">{{ doctor.contactNumber }}</td>
-                <td class="px-4 py-2">
-                  <div class="flex gap-2">
-                    <button
-                      (click)="openUpdateDoctor(doctor)"
-                      class="bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 transition text-sm"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      (click)="deleteDoctor(doctor.doctorId)"
-                      class="bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              } @if (recentDoctors.length === 0) {
-              <tr>
-                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
-                  No doctors found. Click "Add New Doctor" to register the first doctor.
-                </td>
-              </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-      }
+    @Override
+    public List<DoctorAvailabilityResponseDTO> getDoctorAvailability() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
 
-      <!-- Doctor Registration Modal -->
-      @if (showDoctorRegister) {
-      <div
-        class="fixed inset-0 flex items-center justify-center p-4 z-50"
-        (click)="closeDoctorRegister()"
-        style="background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px)"
-      >
-        <div
-          class="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative"
-          (click)="$event.stopPropagation()"
-        >
-          <app-doctor-register
-            [isOpen]="showDoctorRegister"
-            [specializations]="getSpecializations()"
-            (close)="closeDoctorRegister()"
-            (doctorCreated)="onDoctorCreated()"
-          ></app-doctor-register>
-        </div>
-      </div>
-      }
+        Doctor loggedInDoctor = (Doctor) doctorRepository.findByUser_Username(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "username", currentUsername));
 
-      <!-- Update Doctor Modal -->
-      @if (showUpdateDoctor && selectedDoctor) {
-      <div
-        class="fixed inset-0 flex items-center justify-center p-4 z-50"
-        (click)="closeUpdateDoctor()"
-        style="background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px)"
-      >
-        <div
-          class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative"
-          (click)="$event.stopPropagation()"
-        >
-          <div
-            class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl"
-          >
-            <div>
-              <h2 class="text-2xl font-bold text-gray-800">Update Doctor Details</h2>
-              <p class="text-gray-600 mt-1">Update contact information and experience</p>
-            </div>
-            <button
-              (click)="closeUpdateDoctor()"
-              class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200"
-            >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                ></path>
-              </svg>
-            </button>
-          </div>
+        List<DoctorAvailability> availabilities = doctorAvailabilityRepository.findByDoctorDoctorId(loggedInDoctor.getDoctorId());
 
-          <div class="p-6">
-            <!-- Doctor Info (Read-only) -->
-            <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h3 class="font-semibold text-gray-800 mb-2">Doctor Information (Read-only)</h3>
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <label class="text-gray-600">Name:</label>
-                  <p class="font-medium">{{ selectedDoctor.doctorName }}</p>
-                </div>
-                <div>
-                  <label class="text-gray-600">Email:</label>
-                  <p class="font-medium">{{ selectedDoctor.email }}</p>
-                </div>
-                <div>
-                  <label class="text-gray-600">Qualification:</label>
-                  <p class="font-medium">{{ selectedDoctor.qualification }}</p>
-                </div>
-                <div>
-                  <label class="text-gray-600">Specialization:</label>
-                  <p class="font-medium">{{ selectedDoctor.specialization }}</p>
-                </div>
-              </div>
-            </div>
+        return availabilities.stream()
+                .map(availability -> modelMapper.map(availability, DoctorAvailabilityResponseDTO.class))
+                .collect(Collectors.toList());
+    }
 
-            <!-- Update Form -->
-            <form [formGroup]="updateDoctorForm" (ngSubmit)="onUpdateDoctor()" class="space-y-4">
-              <!-- Contact Number -->
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Contact Number</label>
-                <input
-                  type="tel"
-                  formControlName="contactNumber"
-                  class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
-                  placeholder="Enter contact number"
-                />
-                @if (updateDoctorForm.get('contactNumber')?.invalid &&
-                updateDoctorForm.get('contactNumber')?.touched) {
-                <p class="text-red-500 text-sm mt-1">Contact number must be exactly 10 digits.</p>
-                }
-              </div>
+    // Delete Availability Slot
 
-              <!-- Years of Experience -->
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2"
-                  >Years of Experience</label
-                >
-                <input
-                  type="number"
-                  formControlName="yearOfExperience"
-                  class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200"
-                  placeholder="Enter years of experience"
-                  min="0"
-                  max="50"
-                />
-                @if (updateDoctorForm.get('yearOfExperience')?.invalid &&
-                updateDoctorForm.get('yearOfExperience')?.touched) {
-                <p class="text-red-500 text-sm mt-1">Years of experience is required (0-50).</p>
-                }
-              </div>
+    @Override
+    @Transactional
+    public DoctorAvailabilityResponseDTO updateAvailabilitySlot(Long doctorId, Long availabilityId, DoctorAvailabilityDTO doctorAvailabilityDTO) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
-              <!-- Clinic Address -->
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Clinic Address</label>
-                <textarea
-                  formControlName="clinicAddress"
-                  rows="3"
-                  class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all duration-200 resize-none"
-                  placeholder="Enter clinic address"
-                ></textarea>
-                @if (updateDoctorForm.get('clinicAddress')?.invalid &&
-                updateDoctorForm.get('clinicAddress')?.touched) {
-                <p class="text-red-500 text-sm mt-1">
-                  Clinic address is required (min 10 characters).
-                </p>
-                }
-              </div>
+        if (!isAdmin) {
+            throw new AccessDeniedException("Only an ADMIN can update doctor details.");
+        }
 
-              <!-- Error Message -->
-              @if (updateError) {
-              <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p class="text-red-600 text-sm">{{ updateError }}</p>
-              </div>
-              }
+        DoctorAvailability existingAvailability = doctorAvailabilityRepository.findById(availabilityId)
+                .orElseThrow(() -> new ResourceNotFoundException("DoctorAvailability", "availabilityId", availabilityId));
 
-              <!-- Action Buttons -->
-              <div class="flex gap-4 pt-4">
-                <button
-                  type="button"
-                  (click)="closeUpdateDoctor()"
-                  class="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  [disabled]="updateDoctorForm.invalid || isUpdating"
-                  class="flex-1 py-3 bg-green-600 text-white rounded-xl font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg"
-                >
-                  {{ isUpdating ? 'Updating...' : 'Update Doctor' }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-      }
-    </main>
-  </div>
-</div>
+        if (!existingAvailability.getDoctor().getDoctorId().equals(doctorId)) {
+            throw new APIException("Availability slot with ID " + availabilityId + " does not belong to doctor with ID " + doctorId);
+        }
 
+        modelMapper.map(doctorAvailabilityDTO, existingAvailability);
+
+        DoctorAvailability updatedAvailability = doctorAvailabilityRepository.save(existingAvailability);
+
+        return modelMapper.map(updatedAvailability, DoctorAvailabilityResponseDTO.class);
+    }
+
+    @Override
+    public List<DoctorAndAvailabilityResponseDTO> getAvailableDoctor(String doctorName){
+        return doctorRepository.findByAvailableDoctorNameAndAvailability(doctorName);
+    }
+
+
+    @Override
+    public List<DoctorAndAvailabilityResponseDTO> searchDoctorByName(String doctorName){
+        return doctorRepository.findByDoctorNameAndAvailability(doctorName);
+    }
+}
+
+
+
+
+
+
+
+
+
+      package com.cognizant.hams.service.impl;
+
+// DoctorPatientService.java
+
+import com.cognizant.hams.dto.response.MedicalRecordResponseDTO;
+import com.cognizant.hams.dto.response.PatientResponseDTO;
+import com.cognizant.hams.entity.Doctor;
+import com.cognizant.hams.entity.MedicalRecord;
+import com.cognizant.hams.entity.Patient;
+import com.cognizant.hams.repository.AppointmentRepository;
+import com.cognizant.hams.repository.DoctorRepository;
+import com.cognizant.hams.repository.MedicalRecordRepository;
+import com.cognizant.hams.repository.PatientRepository;
+import com.cognizant.hams.service.DoctorPatientService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class DoctorPatientServiceImpl implements DoctorPatientService {
+
+    private final PatientRepository patientRepository;
+    private final MedicalRecordRepository medicalRecordRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final DoctorRepository doctorRepository;
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<PatientResponseDTO> getPatientsForDoctor(Long doctorId) {
+        log.info("Fetching patients for doctor ID: {}", doctorId);
+
+        // Verify doctor exists
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new RuntimeException("Doctor not found with ID: " + doctorId));
+
+        List<Patient> patients = patientRepository.findPatientsByDoctorId(doctorId);
+
+        return patients.stream()
+                .map(this::convertToPatientResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public PatientResponseDTO getPatientById(Long doctorId, Long patientId) {
+        log.info("Fetching patient ID: {} for doctor ID: {}", patientId, doctorId);
+
+        // Verify the patient belongs to this doctor (has appointments with this doctor)
+        boolean hasAppointmentWithDoctor = appointmentRepository
+                .findByDoctorIdAndPatientId(doctorId, patientId)
+                .size() > 0;
+
+        if (!hasAppointmentWithDoctor) {
+            throw new RuntimeException("Patient not found or not associated with this doctor");
+        }
+
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + patientId));
+
+        return convertToPatientResponseDTO(patient);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<MedicalRecordResponseDTO> getPatientMedicalRecords(Long doctorId, Long patientId) {
+        log.info("Fetching medical records for patient ID: {} by doctor ID: {}", patientId, doctorId);
+
+        // Verify the patient belongs to this doctor
+        boolean hasAppointmentWithDoctor = appointmentRepository
+                .findByDoctorIdAndPatientId(doctorId, patientId)
+                .size() > 0;
+
+        if (!hasAppointmentWithDoctor) {
+            throw new RuntimeException("Patient not found or not associated with this doctor");
+        }
+
+        List<MedicalRecord> medicalRecords = medicalRecordRepository
+                .findByPatientIdAndDoctorId(patientId, doctorId);
+
+        return medicalRecords.stream()
+                .map(this::convertToMedicalRecordResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<PatientResponseDTO> searchPatients(Long doctorId, String searchTerm) {
+        log.info("Searching patients for doctor ID: {} with term: {}", doctorId, searchTerm);
+
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return getPatientsForDoctor(doctorId);
+        }
+
+        List<Patient> patients = patientRepository.searchPatientsByDoctorId(doctorId, searchTerm.trim());
+
+        return patients.stream()
+                .map(this::convertToPatientResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public PatientResponseDTO convertToPatientResponseDTO(Patient patient) {
+        PatientResponseDTO dto = new PatientResponseDTO();
+        dto.setPatientId(patient.getPatientId());
+        dto.setName(patient.getName());
+        dto.setEmail(patient.getEmail());
+        dto.setContactNumber(patient.getContactNumber());
+        dto.setAddress(patient.getAddress());
+        dto.setGender(patient.getGender() != null ? patient.getGender() : null);
+        dto.setDateOfBirth(patient.getDateOfBirth());
+        dto.setBloodGroup(patient.getBloodGroup());
+        return dto;
+    }
+
+    @Override
+    public MedicalRecordResponseDTO convertToMedicalRecordResponseDTO(MedicalRecord medicalRecord) {
+        MedicalRecordResponseDTO dto = new MedicalRecordResponseDTO();
+        dto.setRecordId(medicalRecord.getRecordId());
+        dto.setPatientId(medicalRecord.getPatient().getPatientId());
+        dto.setPatientName(medicalRecord.getPatient().getName());
+        dto.setDoctorId(medicalRecord.getDoctor().getDoctorId());
+        dto.setDoctorName(medicalRecord.getDoctor().getDoctorName());
+        dto.setDiagnosis(medicalRecord.getDiagnosis());
+        dto.setNotes(medicalRecord.getNotes());
+        return dto;
+    }
+}
+
+
+
+
+
+
+
+
+          package com.cognizant.hams.service.impl;
+
+import com.cognizant.hams.dto.request.DoctorDTO;
+import com.cognizant.hams.dto.response.DoctorResponseDTO;
+import com.cognizant.hams.entity.Doctor;
+import com.cognizant.hams.exception.APIException;
+import com.cognizant.hams.exception.ResourceNotFoundException;
+import com.cognizant.hams.repository.DoctorRepository;
+import com.cognizant.hams.service.DoctorService;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class DoctorServiceImpl implements DoctorService {
+
+    private final DoctorRepository doctorRepository;
+    private final ModelMapper modelMapper;
+
+    // Get Doctor By I'd:
+    @Override
+    public DoctorResponseDTO getDoctor() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = authentication.getName();
+
+        Doctor doctor = (Doctor) doctorRepository.findByUser_Username(currentUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "username", currentUsername));
+
+        return modelMapper.map(doctor, DoctorResponseDTO.class);
+    }
+
+    // Get All Doctor
+
+    @Override
+    public List<DoctorResponseDTO> getAllDoctor(){
+        List<Doctor> doctors = doctorRepository.findAll();
+        if(doctors.isEmpty()){
+            throw new APIException("No Doctor Available");
+        }
+        return doctors.stream()
+                .map(doctor -> modelMapper.map(doctor,DoctorResponseDTO.class))
+                .collect(Collectors.toList());
+    }
+
+    // Update Doctor
+
+    @Override
+    @Transactional
+    public DoctorResponseDTO updateDoctor(Long doctorId, DoctorDTO doctorDTO) {
+        Doctor existingDoctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "doctorId", doctorId));
+
+        modelMapper.map(doctorDTO, existingDoctor);
+        doctorRepository.save(existingDoctor);
+        return modelMapper.map(existingDoctor, DoctorResponseDTO.class);
+    }
+
+    // Delete Doctor
+    @Override
+    @Transactional
+    public DoctorResponseDTO deleteDoctor(Long doctorId){
+        Doctor existingDoctor = doctorRepository.findByDoctorId(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor","doctorId", doctorId));
+        doctorRepository.deleteById(doctorId);
+        return modelMapper.map(existingDoctor,DoctorResponseDTO.class);
+    }
+
+    // Search Doctors By Specialization
+
+    @Override
+    public List<DoctorResponseDTO> searchDoctorsBySpecialization(String specialization) {
+        List<Doctor> doctorSpecialization = doctorRepository.findBySpecializationContainingIgnoreCase(specialization);
+        if(doctorSpecialization.isEmpty()){
+            throw new ResourceNotFoundException("Doctor","Specialization",specialization);
+        }
+
+        return doctorSpecialization.stream()
+                .map(doctor -> modelMapper.map(doctor,DoctorResponseDTO.class))
+                .collect(Collectors.toList());
+    }
+
+    // Search Doctors By Name
+
+    @Override
+    public List<DoctorResponseDTO> searchDoctorsByName(String name) {
+        List<Doctor> doctorName = doctorRepository.findByDoctorNameContainingIgnoreCase(name);
+        if(doctorName.isEmpty()){
+            throw new ResourceNotFoundException("Doctor","Name",name);
+        }
+
+        return doctorName.stream()
+                .map(doctor -> modelMapper.map(doctor,DoctorResponseDTO.class))
+                .collect(Collectors.toList());
+    }
+}
+
+
+
+
+
+
+
+
+          package com.cognizant.hams.service;
+
+import com.cognizant.hams.dto.request.AppointmentDTO;
+import com.cognizant.hams.dto.response.AppointmentResponseDTO;
+
+import java.util.List;
+
+public interface AppointmentService {
+    AppointmentResponseDTO confirmAppointment(Long appointmentId);
+    AppointmentResponseDTO rejectAppointment(Long appointmentId, String reason);
+
+    List<AppointmentResponseDTO> getAppointmentsForDoctor();
+
+    AppointmentResponseDTO bookAppointment(AppointmentDTO appointmentDTO);
+    AppointmentResponseDTO updateAppointment(Long appointmentId, AppointmentDTO appointmentUpdateDTO);
+    AppointmentResponseDTO cancelAppointment(Long appointmentId);
+    AppointmentResponseDTO getAppointmentById(Long appointmentId);
+    List<AppointmentResponseDTO> getAppointmentsForPatient();
+}
+
+
+
+
+
+
+
+
+
+
+      package com.cognizant.hams.service;
+
+import com.cognizant.hams.dto.response.MedicalRecordResponseDTO;
+import com.cognizant.hams.dto.response.PatientResponseDTO;
+import com.cognizant.hams.entity.MedicalRecord;
+import com.cognizant.hams.entity.Patient;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+public interface DoctorPatientService {
+    @Transactional(readOnly = true)
+    List<PatientResponseDTO> getPatientsForDoctor(Long doctorId);
+
+    @Transactional(readOnly = true)
+    PatientResponseDTO getPatientById(Long doctorId, Long patientId);
+
+    @Transactional(readOnly = true)
+    List<MedicalRecordResponseDTO> getPatientMedicalRecords(Long doctorId, Long patientId);
+
+    @Transactional(readOnly = true)
+    List<PatientResponseDTO> searchPatients(Long doctorId, String searchTerm);
+
+    PatientResponseDTO convertToPatientResponseDTO(Patient patient);
+
+    MedicalRecordResponseDTO convertToMedicalRecordResponseDTO(MedicalRecord medicalRecord);
+}
